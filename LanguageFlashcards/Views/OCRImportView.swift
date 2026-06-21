@@ -6,15 +6,19 @@ import UIKit
 struct OCRImportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var settings: AppSettings
     @Bindable var deck: FlashcardDeck
+    private let totalCardCount: Int
 
     @State private var selectedItem: PhotosPickerItem?
     @State private var recognizedText = ""
     @State private var isRecognizing = false
     @State private var errorMessage: String?
+    @State private var showingPremiumUpgrade = false
 
-    init(deck: FlashcardDeck) {
+    init(deck: FlashcardDeck, totalCardCount: Int = 0) {
         self._deck = Bindable(deck)
+        self.totalCardCount = totalCardCount
     }
 
     var body: some View {
@@ -23,11 +27,24 @@ struct OCRImportView: View {
                 PhotosPicker(selection: $selectedItem, matching: .images) {
                     Label("写真を選ぶ", systemImage: "photo.on.rectangle")
                 }
+                .disabled(!settings.canUseOCRImport())
 
                 if isRecognizing {
                     HStack {
                         ProgressView()
                         Text("文字を読み取り中")
+                    }
+                }
+
+                if !settings.isPremium {
+                    Text("無料版の写真OCRは月\(PremiumLimits.freeOCRImportsPerMonth)回まで。残り\(settings.totalFreeOCRRemainingThisMonth)回です。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !settings.canUseOCRImport() {
+                    Button("プレミアムでOCRを続ける") {
+                        showingPremiumUpgrade = true
                     }
                 }
             }
@@ -70,7 +87,7 @@ struct OCRImportView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") { saveRows() }
-                    .disabled(parsedRows.isEmpty)
+                    .disabled(parsedRows.isEmpty || !settings.canAddCards(totalCardCount: totalCardCount, adding: parsedRows.count))
             }
         }
         .task(id: selectedItem) {
@@ -83,6 +100,9 @@ struct OCRImportView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+        .sheet(isPresented: $showingPremiumUpgrade) {
+            PremiumUpgradeView()
         }
     }
 
@@ -108,6 +128,10 @@ struct OCRImportView: View {
 
     private func recognizeSelectedImage() async {
         guard let selectedItem else { return }
+        guard settings.canUseOCRImport() else {
+            showingPremiumUpgrade = true
+            return
+        }
         isRecognizing = true
         defer { isRecognizing = false }
 
@@ -117,12 +141,17 @@ struct OCRImportView: View {
                 throw OCRServiceError.missingImage
             }
             recognizedText = try await OCRService().recognizeText(from: image)
+            settings.recordOCRImport()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     private func saveRows() {
+        guard settings.canAddCards(totalCardCount: totalCardCount, adding: parsedRows.count) else {
+            showingPremiumUpgrade = true
+            return
+        }
         for row in parsedRows where !row.languageOne.isEmpty {
             deck.cards.append(Flashcard(languageOneText: row.languageOne, languageTwoText: row.languageTwo))
         }
@@ -131,4 +160,3 @@ struct OCRImportView: View {
         dismiss()
     }
 }
-

@@ -3,7 +3,9 @@ import SwiftData
 import SwiftUI
 
 struct DashboardView: View {
+    @EnvironmentObject private var settings: AppSettings
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
+    @State private var showingPremiumUpgrade = false
     private let calendar = Calendar.current
 
     var body: some View {
@@ -14,10 +16,18 @@ struct DashboardView: View {
                     calendarSection
                     trendSection
                     improvementSection
+                    if !settings.isPremium {
+                        PremiumHomeCard {
+                            showingPremiumUpgrade = true
+                        }
+                    }
                 }
                 .padding()
             }
             .navigationTitle("学習の成果")
+            .sheet(isPresented: $showingPremiumUpgrade) {
+                PremiumUpgradeView()
+            }
         }
     }
 
@@ -117,13 +127,13 @@ struct DashboardView: View {
     }
 
     private var dailyReviewPoints: [DailyPoint] {
-        pointsForLastDays { day in
+        pointsForLastDays(count: settings.isPremium ? 30 : 7) { day in
             reviewCount(on: day)
         }
     }
 
     private var improvementPoints: [DailyPoint] {
-        pointsForLastDays { day in
+        pointsForLastDays(count: settings.isPremium ? 30 : 7) { day in
             reviews.filter { calendar.isDate($0.reviewedAt, inSameDayAs: day) && $0.promotedToPerfect }.count
         }
     }
@@ -183,4 +193,3 @@ private struct MetricCard: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 }
-

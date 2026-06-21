@@ -8,15 +8,18 @@ struct CardEditorView: View {
     @Bindable var deck: FlashcardDeck
 
     private let card: Flashcard?
+    private let totalCardCount: Int
     @State private var languageOneText: String
     @State private var languageTwoText: String
     @State private var meanings: [MeaningEntry]
     @State private var isCompleting = false
     @State private var errorMessage: String?
+    @State private var showingPremiumUpgrade = false
 
-    init(deck: FlashcardDeck, card: Flashcard? = nil) {
+    init(deck: FlashcardDeck, card: Flashcard? = nil, totalCardCount: Int = 0) {
         self._deck = Bindable(deck)
         self.card = card
+        self.totalCardCount = totalCardCount
         self._languageOneText = State(initialValue: card?.languageOneText ?? "")
         self._languageTwoText = State(initialValue: card?.languageTwoText ?? "")
         let savedMeanings = card?.meanings ?? []
@@ -34,7 +37,11 @@ struct CardEditorView: View {
 
             Section {
                 Button {
-                    Task { await completeWithGemini() }
+                    if settings.canUseGeminiCompletion() {
+                        Task { await completeWithGemini() }
+                    } else {
+                        showingPremiumUpgrade = true
+                    }
                 } label: {
                     if isCompleting {
                         ProgressView()
@@ -46,6 +53,10 @@ struct CardEditorView: View {
 
                 if settings.geminiAPIKey.isEmpty {
                     Text("Gemini補完を使うには、設定でAPIキーを入力してください。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if !settings.isPremium {
+                    Text("無料版のGemini補完は1日\(PremiumLimits.freeGeminiCompletionsPerDay)回まで。残り\(settings.totalFreeGeminiRemainingToday)回です。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -95,6 +106,9 @@ struct CardEditorView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        .sheet(isPresented: $showingPremiumUpgrade) {
+            PremiumUpgradeView()
+        }
     }
 
     private func completeWithGemini() async {
@@ -111,6 +125,7 @@ struct CardEditorView: View {
             )
             languageTwoText = suggestion.languageTwoText
             meanings = suggestion.meanings.isEmpty ? [MeaningEntry()] : suggestion.meanings
+            settings.recordGeminiCompletion()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -129,6 +144,10 @@ struct CardEditorView: View {
             card.meanings = cleanedMeanings
             card.updatedAt = .now
         } else {
+            guard settings.canAddCards(totalCardCount: totalCardCount, adding: 1) else {
+                showingPremiumUpgrade = true
+                return
+            }
             let newCard = Flashcard(
                 languageOneText: languageOneText.trimmingCharacters(in: .whitespacesAndNewlines),
                 languageTwoText: languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -142,4 +161,3 @@ struct CardEditorView: View {
         dismiss()
     }
 }
-

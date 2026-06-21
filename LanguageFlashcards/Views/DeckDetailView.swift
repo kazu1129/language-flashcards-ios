@@ -4,10 +4,12 @@ import SwiftUI
 struct DeckDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
+    @Query private var allDecks: [FlashcardDeck]
     @Bindable var deck: FlashcardDeck
 
     @State private var showingManualEntry = false
     @State private var showingOCRImport = false
+    @State private var showingPremiumUpgrade = false
     @State private var editingCard: Flashcard?
     @State private var shareFile: ShareFile?
     @State private var exportError: String?
@@ -68,13 +70,21 @@ struct DeckDetailView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
                     Button {
-                        showingManualEntry = true
+                        if settings.canAddCards(totalCardCount: totalCardCount, adding: 1) {
+                            showingManualEntry = true
+                        } else {
+                            showingPremiumUpgrade = true
+                        }
                     } label: {
                         Label("直接入力", systemImage: "keyboard")
                     }
 
                     Button {
-                        showingOCRImport = true
+                        if settings.canUseOCRImport() {
+                            showingOCRImport = true
+                        } else {
+                            showingPremiumUpgrade = true
+                        }
                     } label: {
                         Label("写真から抽出", systemImage: "camera.viewfinder")
                     }
@@ -85,7 +95,13 @@ struct DeckDetailView: View {
 
                 Menu {
                     Button("TXTで共有") { export(.text) }
-                    Button("PDFで共有") { export(.pdf) }
+                    Button(settings.isPremium ? "PDFで共有" : "PDFで共有（プレミアム）") {
+                        if settings.isPremium {
+                            export(.pdf)
+                        } else {
+                            showingPremiumUpgrade = true
+                        }
+                    }
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                 }
@@ -95,21 +111,24 @@ struct DeckDetailView: View {
         }
         .sheet(isPresented: $showingManualEntry) {
             NavigationStack {
-                CardEditorView(deck: deck)
+                CardEditorView(deck: deck, totalCardCount: totalCardCount)
             }
         }
         .sheet(isPresented: $showingOCRImport) {
             NavigationStack {
-                OCRImportView(deck: deck)
+                OCRImportView(deck: deck, totalCardCount: totalCardCount)
             }
         }
         .sheet(item: $editingCard) { card in
             NavigationStack {
-                CardEditorView(deck: deck, card: card)
+                CardEditorView(deck: deck, card: card, totalCardCount: totalCardCount)
             }
         }
         .sheet(item: $shareFile) { file in
             ShareSheet(items: [file.url])
+        }
+        .sheet(isPresented: $showingPremiumUpgrade) {
+            PremiumUpgradeView()
         }
         .alert("共有ファイルを作れませんでした", isPresented: Binding(
             get: { exportError != nil },
@@ -119,6 +138,10 @@ struct DeckDetailView: View {
         } message: {
             Text(exportError ?? "")
         }
+    }
+
+    private var totalCardCount: Int {
+        allDecks.reduce(0) { $0 + $1.cards.count }
     }
 
     private func deleteCards(at offsets: IndexSet) {
@@ -138,4 +161,3 @@ struct DeckDetailView: View {
         }
     }
 }
-

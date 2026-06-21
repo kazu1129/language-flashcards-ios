@@ -47,6 +47,38 @@ enum AppearancePreference: String, CaseIterable, Identifiable {
     }
 }
 
+enum SubscriptionTier: String, CaseIterable, Identifiable {
+    case free
+    case premium
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .free:
+            "無料"
+        case .premium:
+            "プレミアム"
+        }
+    }
+
+    var badgeText: String {
+        switch self {
+        case .free:
+            "FREE"
+        case .premium:
+            "PREMIUM"
+        }
+    }
+}
+
+enum PremiumLimits {
+    static let freeDecks = 3
+    static let freeCards = 100
+    static let freeGeminiCompletionsPerDay = 5
+    static let freeOCRImportsPerMonth = 10
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     private enum Keys {
@@ -56,6 +88,19 @@ final class AppSettings: ObservableObject {
         static let fontScale = "fontScale"
         static let appearance = "appearance"
         static let geminiModel = "geminiModel"
+        static let subscriptionTier = "subscriptionTier"
+        static let showCharacterOnHome = "showCharacterOnHome"
+        static let studyReminderEnabled = "studyReminderEnabled"
+        static let dailySummaryEnabled = "dailySummaryEnabled"
+        static let anniversaryNotificationsEnabled = "anniversaryNotificationsEnabled"
+        static let growthNotificationsEnabled = "growthNotificationsEnabled"
+        static let hasBirthday = "hasBirthday"
+        static let birthday = "birthday"
+        static let lastNotifiedGrowthStage = "lastNotifiedGrowthStage"
+        static let geminiUsageDay = "geminiUsageDay"
+        static let geminiUsageCount = "geminiUsageCount"
+        static let ocrUsageMonth = "ocrUsageMonth"
+        static let ocrUsageCount = "ocrUsageCount"
     }
 
     @Published var displaySide: CardSidePreference {
@@ -82,6 +127,38 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(geminiModel, forKey: Keys.geminiModel) }
     }
 
+    @Published var subscriptionTier: SubscriptionTier {
+        didSet { defaults.set(subscriptionTier.rawValue, forKey: Keys.subscriptionTier) }
+    }
+
+    @Published var showCharacterOnHome: Bool {
+        didSet { defaults.set(showCharacterOnHome, forKey: Keys.showCharacterOnHome) }
+    }
+
+    @Published var studyReminderEnabled: Bool {
+        didSet { defaults.set(studyReminderEnabled, forKey: Keys.studyReminderEnabled) }
+    }
+
+    @Published var dailySummaryEnabled: Bool {
+        didSet { defaults.set(dailySummaryEnabled, forKey: Keys.dailySummaryEnabled) }
+    }
+
+    @Published var anniversaryNotificationsEnabled: Bool {
+        didSet { defaults.set(anniversaryNotificationsEnabled, forKey: Keys.anniversaryNotificationsEnabled) }
+    }
+
+    @Published var growthNotificationsEnabled: Bool {
+        didSet { defaults.set(growthNotificationsEnabled, forKey: Keys.growthNotificationsEnabled) }
+    }
+
+    @Published var hasBirthday: Bool {
+        didSet { defaults.set(hasBirthday, forKey: Keys.hasBirthday) }
+    }
+
+    @Published var birthday: Date {
+        didSet { defaults.set(birthday.timeIntervalSince1970, forKey: Keys.birthday) }
+    }
+
     @Published var geminiAPIKey: String {
         didSet { KeychainService.saveGeminiAPIKey(geminiAPIKey) }
     }
@@ -98,7 +175,88 @@ final class AppSettings: ObservableObject {
         self.fontScale = savedScale == 0 ? 1.0 : savedScale
         self.appearance = AppearancePreference(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
         self.geminiModel = defaults.string(forKey: Keys.geminiModel) ?? "gemini-3.5-flash"
+        self.subscriptionTier = SubscriptionTier(rawValue: defaults.string(forKey: Keys.subscriptionTier) ?? "") ?? .free
+        self.showCharacterOnHome = defaults.object(forKey: Keys.showCharacterOnHome) as? Bool ?? true
+        self.studyReminderEnabled = defaults.object(forKey: Keys.studyReminderEnabled) as? Bool ?? true
+        self.dailySummaryEnabled = defaults.object(forKey: Keys.dailySummaryEnabled) as? Bool ?? true
+        self.anniversaryNotificationsEnabled = defaults.object(forKey: Keys.anniversaryNotificationsEnabled) as? Bool ?? true
+        self.growthNotificationsEnabled = defaults.object(forKey: Keys.growthNotificationsEnabled) as? Bool ?? true
+        self.hasBirthday = defaults.bool(forKey: Keys.hasBirthday)
+        let savedBirthday = defaults.double(forKey: Keys.birthday)
+        self.birthday = savedBirthday == 0 ? Date() : Date(timeIntervalSince1970: savedBirthday)
         self.geminiAPIKey = KeychainService.loadGeminiAPIKey()
     }
-}
 
+    var isPremium: Bool {
+        subscriptionTier == .premium
+    }
+
+    var totalFreeGeminiRemainingToday: Int {
+        max(0, PremiumLimits.freeGeminiCompletionsPerDay - usageCount(forCountKey: Keys.geminiUsageCount, periodKey: Keys.geminiUsageDay, currentPeriod: Self.dayKey()))
+    }
+
+    var totalFreeOCRRemainingThisMonth: Int {
+        max(0, PremiumLimits.freeOCRImportsPerMonth - usageCount(forCountKey: Keys.ocrUsageCount, periodKey: Keys.ocrUsageMonth, currentPeriod: Self.monthKey()))
+    }
+
+    func canCreateDeck(existingDeckCount: Int) -> Bool {
+        isPremium || existingDeckCount < PremiumLimits.freeDecks
+    }
+
+    func canAddCards(totalCardCount: Int, adding count: Int) -> Bool {
+        isPremium || totalCardCount + count <= PremiumLimits.freeCards
+    }
+
+    func canUseGeminiCompletion() -> Bool {
+        isPremium || totalFreeGeminiRemainingToday > 0
+    }
+
+    func recordGeminiCompletion() {
+        guard !isPremium else { return }
+        incrementUsage(forCountKey: Keys.geminiUsageCount, periodKey: Keys.geminiUsageDay, currentPeriod: Self.dayKey())
+    }
+
+    func canUseOCRImport() -> Bool {
+        isPremium || totalFreeOCRRemainingThisMonth > 0
+    }
+
+    func recordOCRImport() {
+        guard !isPremium else { return }
+        incrementUsage(forCountKey: Keys.ocrUsageCount, periodKey: Keys.ocrUsageMonth, currentPeriod: Self.monthKey())
+    }
+
+    func lastNotifiedGrowthStage() -> Int {
+        defaults.integer(forKey: Keys.lastNotifiedGrowthStage)
+    }
+
+    func markGrowthStageNotified(_ level: Int) {
+        defaults.set(level, forKey: Keys.lastNotifiedGrowthStage)
+    }
+
+    private func usageCount(forCountKey countKey: String, periodKey: String, currentPeriod: String) -> Int {
+        if defaults.string(forKey: periodKey) != currentPeriod {
+            defaults.set(currentPeriod, forKey: periodKey)
+            defaults.set(0, forKey: countKey)
+        }
+        return defaults.integer(forKey: countKey)
+    }
+
+    private func incrementUsage(forCountKey countKey: String, periodKey: String, currentPeriod: String) {
+        let count = usageCount(forCountKey: countKey, periodKey: periodKey, currentPeriod: currentPeriod)
+        defaults.set(count + 1, forKey: countKey)
+    }
+
+    private static func dayKey(for date: Date = .now) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private static func monthKey(for date: Date = .now) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.string(from: date)
+    }
+}
