@@ -33,3 +33,13 @@ The default Gemini model is `gemini-3.5-flash`, matching the current Gemini API 
 
 Open `LanguageFlashcards.xcodeproj` in Xcode and run the `LanguageFlashcards` scheme on an iPhone simulator or device.
 
+## Real Device Check
+
+1. Open `LanguageFlashcards.xcodeproj` in Xcode.
+2. Connect your iPhone with USB or enable wireless debugging.
+3. On the iPhone, enable Developer Mode if iOS asks for it.
+4. In Xcode, select your iPhone as the run destination.
+5. Confirm the app target uses Automatic Signing with Team `UYAG3JDD7G`.
+6. Press Run.
+
+If the device appears offline, unlock the iPhone, tap Trust This Computer, reconnect the cable, and restart Xcode if needed.
