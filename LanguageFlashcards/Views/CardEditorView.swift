@@ -1,0 +1,145 @@
+import SwiftData
+import SwiftUI
+
+struct CardEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var settings: AppSettings
+    @Bindable var deck: FlashcardDeck
+
+    private let card: Flashcard?
+    @State private var languageOneText: String
+    @State private var languageTwoText: String
+    @State private var meanings: [MeaningEntry]
+    @State private var isCompleting = false
+    @State private var errorMessage: String?
+
+    init(deck: FlashcardDeck, card: Flashcard? = nil) {
+        self._deck = Bindable(deck)
+        self.card = card
+        self._languageOneText = State(initialValue: card?.languageOneText ?? "")
+        self._languageTwoText = State(initialValue: card?.languageTwoText ?? "")
+        let savedMeanings = card?.meanings ?? []
+        self._meanings = State(initialValue: savedMeanings.isEmpty ? [MeaningEntry()] : savedMeanings)
+    }
+
+    var body: some View {
+        Form {
+            Section("単語 / フレーズ") {
+                TextField(deck.languageOneName, text: $languageOneText, axis: .vertical)
+                    .lineLimit(1...4)
+                TextField(deck.languageTwoName, text: $languageTwoText, axis: .vertical)
+                    .lineLimit(1...4)
+            }
+
+            Section {
+                Button {
+                    Task { await completeWithGemini() }
+                } label: {
+                    if isCompleting {
+                        ProgressView()
+                    } else {
+                        Label("Geminiで意味と例文を補完", systemImage: "sparkles")
+                    }
+                }
+                .disabled(isCompleting || languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || settings.geminiAPIKey.isEmpty)
+
+                if settings.geminiAPIKey.isEmpty {
+                    Text("Gemini補完を使うには、設定でAPIキーを入力してください。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("意味と例文") {
+                ForEach($meanings) { $meaning in
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("意味", text: $meaning.meaning, axis: .vertical)
+                            .lineLimit(1...3)
+                        TextField("例文", text: $meaning.example, axis: .vertical)
+                            .lineLimit(1...4)
+                        TextField("例文の訳", text: $meaning.exampleTranslation, axis: .vertical)
+                            .lineLimit(1...4)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .onDelete { offsets in
+                    meanings.remove(atOffsets: offsets)
+                    if meanings.isEmpty {
+                        meanings.append(MeaningEntry())
+                    }
+                }
+
+                Button {
+                    meanings.append(MeaningEntry())
+                } label: {
+                    Label("意味を追加", systemImage: "plus.circle")
+                }
+            }
+        }
+        .navigationTitle(card == nil ? "カードを追加" : "カードを編集")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("キャンセル") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("保存") { save() }
+                    .disabled(languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCompleting)
+            }
+        }
+        .alert("Gemini補完に失敗しました", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func completeWithGemini() async {
+        isCompleting = true
+        defer { isCompleting = false }
+
+        do {
+            let suggestion = try await GeminiService().completeCard(
+                languageOneText: languageOneText,
+                languageOneName: deck.languageOneName,
+                languageTwoName: deck.languageTwoName,
+                apiKey: settings.geminiAPIKey,
+                model: settings.geminiModel
+            )
+            languageTwoText = suggestion.languageTwoText
+            meanings = suggestion.meanings.isEmpty ? [MeaningEntry()] : suggestion.meanings
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func save() {
+        let cleanedMeanings = meanings.filter { entry in
+            !entry.meaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !entry.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !entry.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+
+        if let card {
+            card.languageOneText = languageOneText.trimmingCharacters(in: .whitespacesAndNewlines)
+            card.languageTwoText = languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines)
+            card.meanings = cleanedMeanings
+            card.updatedAt = .now
+        } else {
+            let newCard = Flashcard(
+                languageOneText: languageOneText.trimmingCharacters(in: .whitespacesAndNewlines),
+                languageTwoText: languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines),
+                meanings: cleanedMeanings
+            )
+            deck.cards.append(newCard)
+        }
+
+        deck.updatedAt = .now
+        try? modelContext.save()
+        dismiss()
+    }
+}
+
