@@ -6,8 +6,11 @@ struct HomeView: View {
     @EnvironmentObject private var settings: AppSettings
     @Query(sort: \FlashcardDeck.updatedAt, order: .reverse) private var decks: [FlashcardDeck]
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
+    var onShowDashboard: () -> Void = {}
+
     @State private var showingDeckEditor = false
     @State private var showingPremiumUpgrade = false
+    @State private var homeImportSource: OCRImportStartSource?
 
     var body: some View {
         NavigationStack {
@@ -33,7 +36,7 @@ struct HomeView: View {
                     } else {
                         ForEach(decks) { deck in
                             NavigationLink {
-                                DeckDetailView(deck: deck)
+                                DeckDetailView(deck: deck, onShowDashboard: onShowDashboard)
                             } label: {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(deck.name)
@@ -61,16 +64,32 @@ struct HomeView: View {
             .navigationTitle("ホーム")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        if settings.canCreateDeck(existingDeckCount: decks.count) {
-                            showingDeckEditor = true
-                        } else {
-                            showingPremiumUpgrade = true
+                    Menu {
+                        Button {
+                            if settings.canCreateDeck(existingDeckCount: decks.count) {
+                                showingDeckEditor = true
+                            } else {
+                                showingPremiumUpgrade = true
+                            }
+                        } label: {
+                            Label("セットを追加", systemImage: "rectangle.stack.badge.plus")
+                        }
+
+                        Button {
+                            homeImportSource = .camera
+                        } label: {
+                            Label("写真を撮る", systemImage: "camera")
+                        }
+
+                        Button {
+                            homeImportSource = .library
+                        } label: {
+                            Label("写真を選ぶ", systemImage: "photo.on.rectangle")
                         }
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("セットを追加")
+                    .accessibilityLabel("追加")
                 }
             }
             .sheet(isPresented: $showingDeckEditor) {
@@ -80,6 +99,11 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingPremiumUpgrade) {
                 PremiumUpgradeView()
+            }
+            .sheet(item: $homeImportSource) { source in
+                NavigationStack {
+                    HomeOCRImportDestinationView(source: source)
+                }
             }
         }
     }
@@ -96,5 +120,56 @@ struct HomeView: View {
         for index in offsets {
             modelContext.delete(decks[index])
         }
+    }
+}
+
+private struct HomeOCRImportDestinationView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \FlashcardDeck.updatedAt, order: .reverse) private var decks: [FlashcardDeck]
+
+    let source: OCRImportStartSource
+
+    var body: some View {
+        List {
+            if decks.isEmpty {
+                ContentUnavailableView(
+                    "追加先のセットがありません",
+                    systemImage: "rectangle.stack.badge.plus",
+                    description: Text("先にフラッシュカードセットを作ると、写真からカードを追加できます。")
+                )
+            } else {
+                Section("追加先のセット") {
+                    ForEach(decks) { deck in
+                        NavigationLink {
+                            OCRImportView(
+                                deck: deck,
+                                totalCardCount: totalCardCount,
+                                startSource: source
+                            ) {
+                                dismiss()
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(deck.name)
+                                    .font(.headline)
+                                Text("\(deck.languageOneName) / \(deck.languageTwoName) ・ \(deck.cards.count)枚")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(source.title)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("閉じる") { dismiss() }
+            }
+        }
+    }
+
+    private var totalCardCount: Int {
+        decks.reduce(0) { $0 + $1.cards.count }
     }
 }

@@ -1,27 +1,39 @@
 import SwiftData
 import SwiftUI
 
+private enum RootTab {
+    case home
+    case dashboard
+    case settings
+}
+
 struct RootView: View {
     @EnvironmentObject private var settings: AppSettings
     @Query private var decks: [FlashcardDeck]
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
+    @State private var selectedTab: RootTab = .home
 
     var body: some View {
-        TabView {
-            HomeView()
+        TabView(selection: $selectedTab) {
+            HomeView {
+                selectedTab = .dashboard
+            }
                 .tabItem {
                     Label("ホーム", systemImage: "rectangle.stack")
                 }
+                .tag(RootTab.home)
 
             DashboardView()
                 .tabItem {
                     Label("成果", systemImage: "chart.line.uptrend.xyaxis")
                 }
+                .tag(RootTab.dashboard)
 
             SettingsView()
                 .tabItem {
                     Label("設定", systemImage: "gearshape")
                 }
+                .tag(RootTab.settings)
         }
         .task {
             await refreshNotifications()

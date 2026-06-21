@@ -46,7 +46,7 @@ struct CardEditorView: View {
                     if isCompleting {
                         ProgressView()
                     } else {
-                        Label("Geminiで意味と例文を補完", systemImage: "sparkles")
+                        Label("Gemini（Google検索込み）で意味と例文を補完", systemImage: "sparkles")
                     }
                 }
                 .disabled(isCompleting || languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || settings.geminiAPIKey.isEmpty)
@@ -57,6 +57,10 @@ struct CardEditorView: View {
                         .foregroundStyle(.secondary)
                 } else if !settings.isPremium {
                     Text("無料版のGemini補完は1日\(PremiumLimits.freeGeminiCompletionsPerDay)回まで。残り\(settings.totalFreeGeminiRemainingToday)回です。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Gemini APIのGoogle検索機能で、意味と例文を補完します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

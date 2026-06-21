@@ -28,6 +28,7 @@ enum GeminiServiceError: LocalizedError {
 final class GeminiService {
     private struct GenerateRequest: Encodable {
         var contents: [Content]
+        var tools: [Tool]?
         var generationConfig: GenerationConfig
     }
 
@@ -43,6 +44,16 @@ final class GeminiService {
         var temperature: Double
         var responseMimeType: String
     }
+
+    private struct Tool: Encodable {
+        var googleSearch: GoogleSearch
+
+        private enum CodingKeys: String, CodingKey {
+            case googleSearch = "google_search"
+        }
+    }
+
+    private struct GoogleSearch: Encodable {}
 
     private struct GenerateResponse: Decodable {
         var candidates: [Candidate]?
@@ -70,7 +81,9 @@ final class GeminiService {
         languageOneName: String,
         languageTwoName: String,
         apiKey: String,
-        model: String
+        model: String,
+        exampleLanguageName: String? = nil,
+        useGoogleSearch: Bool = true
     ) async throws -> GeminiFlashcardSuggestion {
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedKey.isEmpty else { throw GeminiServiceError.missingAPIKey }
@@ -92,6 +105,7 @@ final class GeminiService {
 
         Source language: \(languageOneName)
         Target language: \(languageTwoName)
+        Example sentence language: \(exampleLanguageName ?? languageTwoName)
         Source word or phrase: \(languageOneText)
 
         JSON schema:
@@ -107,10 +121,12 @@ final class GeminiService {
         }
 
         If there are multiple common meanings, include each meaning with exactly one example.
+        Use Google Search grounding when it helps make the meaning and example natural and current.
         """
 
         let body = GenerateRequest(
             contents: [Content(parts: [Part(text: prompt)])],
+            tools: useGoogleSearch ? [Tool(googleSearch: GoogleSearch())] : nil,
             generationConfig: GenerationConfig(temperature: 0.2, responseMimeType: "application/json")
         )
         request.httpBody = try JSONEncoder().encode(body)
@@ -145,4 +161,3 @@ final class GeminiService {
         return cleaned
     }
 }
-

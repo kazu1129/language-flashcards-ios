@@ -6,11 +6,12 @@ struct DeckDetailView: View {
     @EnvironmentObject private var settings: AppSettings
     @Query private var allDecks: [FlashcardDeck]
     @Bindable var deck: FlashcardDeck
+    var onShowDashboard: () -> Void = {}
 
     @State private var showingManualEntry = false
-    @State private var showingOCRImport = false
     @State private var showingPremiumUpgrade = false
     @State private var editingCard: Flashcard?
+    @State private var ocrStartSource: OCRImportStartSource?
     @State private var shareFile: ShareFile?
     @State private var exportError: String?
 
@@ -18,7 +19,7 @@ struct DeckDetailView: View {
         List {
             Section {
                 NavigationLink {
-                    StudySessionView(deck: deck)
+                    StudySessionView(deck: deck, onFinish: onShowDashboard)
                 } label: {
                     Label("学習を開始", systemImage: "play.circle.fill")
                         .font(.headline)
@@ -81,12 +82,22 @@ struct DeckDetailView: View {
 
                     Button {
                         if settings.canUseOCRImport() {
-                            showingOCRImport = true
+                            ocrStartSource = .camera
                         } else {
                             showingPremiumUpgrade = true
                         }
                     } label: {
-                        Label("写真から抽出", systemImage: "camera.viewfinder")
+                        Label("写真を撮る", systemImage: "camera")
+                    }
+
+                    Button {
+                        if settings.canUseOCRImport() {
+                            ocrStartSource = .library
+                        } else {
+                            showingPremiumUpgrade = true
+                        }
+                    } label: {
+                        Label("写真を選ぶ", systemImage: "photo.on.rectangle")
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -114,9 +125,9 @@ struct DeckDetailView: View {
                 CardEditorView(deck: deck, totalCardCount: totalCardCount)
             }
         }
-        .sheet(isPresented: $showingOCRImport) {
+        .sheet(item: $ocrStartSource) { source in
             NavigationStack {
-                OCRImportView(deck: deck, totalCardCount: totalCardCount)
+                OCRImportView(deck: deck, totalCardCount: totalCardCount, startSource: source)
             }
         }
         .sheet(item: $editingCard) { card in

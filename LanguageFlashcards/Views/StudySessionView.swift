@@ -2,9 +2,11 @@ import SwiftData
 import SwiftUI
 
 struct StudySessionView: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
     @Bindable var deck: FlashcardDeck
+    var onFinish: () -> Void
 
     @StateObject private var speech = SpeechService()
     @State private var sessionCards: [Flashcard] = []
@@ -12,9 +14,11 @@ struct StudySessionView: View {
     @State private var flipped = false
     @State private var ratedCardIDs: Set<UUID> = []
     @State private var showRatingReminder = false
+    @State private var showingCompletion = false
 
-    init(deck: FlashcardDeck) {
+    init(deck: FlashcardDeck, onFinish: @escaping () -> Void = {}) {
         self._deck = Bindable(deck)
+        self.onFinish = onFinish
     }
 
     var body: some View {
@@ -24,6 +28,12 @@ struct StudySessionView: View {
                     "学習できるカードがありません",
                     systemImage: "rectangle.stack.badge.person.crop",
                     description: Text("カードを追加してから学習を開始してください。")
+                )
+            } else if showingCompletion {
+                StudySessionCompletionView(
+                    studiedCount: ratedCardIDs.count,
+                    nextSetAction: startNextSession,
+                    finishAction: finishSession
                 )
             } else if let card = currentCard {
                 VStack(spacing: 16) {
@@ -158,11 +168,22 @@ struct StudySessionView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 moveNext(allowWithoutRating: true)
             }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                completeSession()
+            }
         }
     }
 
     private func moveNext(allowWithoutRating: Bool = false) {
-        guard currentIndex < sessionCards.count - 1 else { return }
+        guard currentIndex < sessionCards.count - 1 else {
+            if !allowWithoutRating, let card = currentCard, !ratedCardIDs.contains(card.id) {
+                showRatingReminder = true
+                return
+            }
+            completeSession()
+            return
+        }
         if !allowWithoutRating, let card = currentCard, !ratedCardIDs.contains(card.id) {
             showRatingReminder = true
             return
@@ -185,6 +206,34 @@ struct StudySessionView: View {
         }
     }
 
+    private func completeSession() {
+        showRatingReminder = false
+        speech.stop()
+        withAnimation(.snappy) {
+            showingCompletion = true
+            flipped = false
+        }
+    }
+
+    private func startNextSession() {
+        speech.stop()
+        let plannedCards = StudyScheduler.plan(cards: deck.cards, count: settings.sessionCardCount)
+        withAnimation(.snappy) {
+            sessionCards = plannedCards
+            currentIndex = 0
+            flipped = false
+            ratedCardIDs = []
+            showRatingReminder = false
+            showingCompletion = false
+        }
+    }
+
+    private func finishSession() {
+        speech.stop()
+        dismiss()
+        onFinish()
+    }
+
     private func iconName(for rating: ReviewRating) -> String {
         switch rating {
         case .perfect:
@@ -194,6 +243,50 @@ struct StudySessionView: View {
         case .unknown:
             "xmark.circle.fill"
         }
+    }
+}
+
+private struct StudySessionCompletionView: View {
+    var studiedCount: Int
+    var nextSetAction: () -> Void
+    var finishAction: () -> Void
+
+    var body: some View {
+        VStack(spacing: 22) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 58))
+                .foregroundStyle(.green)
+
+            VStack(spacing: 8) {
+                Text("このセットが完了しました")
+                    .font(.title2.bold())
+                Text("\(studiedCount)枚を学習しました。続ける場合は、忘却曲線で優先度が高いカードから次のセットを出します。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 12) {
+                Button {
+                    nextSetAction()
+                } label: {
+                    Label("次のセット", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    finishAction()
+                } label: {
+                    Label("終了", systemImage: "chart.line.uptrend.xyaxis")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.top, 8)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -222,7 +315,7 @@ private struct FlashcardStudyCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         if card.meanings.isEmpty {
-                            Text("意味と例文は未入力です。カード編集画面で入力、またはGeminiで補完できます。")
+                            Text("意味と例文は未入力です。カード編集画面で入力、またはGemini（Google検索込み）で補完できます。")
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(card.meanings) { meaning in
@@ -270,4 +363,3 @@ private struct FlashcardStudyCard: View {
         .contentShape(RoundedRectangle(cornerRadius: 18))
     }
 }
-
