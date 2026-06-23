@@ -40,6 +40,7 @@ struct OCRImportView: View {
     @State private var didHandleStartSource = false
     @State private var shouldCompleteWithGemini = true
     @State private var duplicateWarningMessage: String?
+    @State private var cardLimitWarningMessage: String?
 
     init(
         deck: FlashcardDeck,
@@ -112,6 +113,12 @@ struct OCRImportView: View {
                     Text("英語のword/phraseを含む行だけ保存します。日本語など第1言語も同じ行にあれば、ペアとして登録します。")
                         .foregroundStyle(.secondary)
                 } else {
+                    if exceedsCardLimit {
+                        Label(cardLimitSummary, systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+
                     ForEach(parsedRows) { row in
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.languageTwo)
@@ -174,7 +181,7 @@ struct OCRImportView: View {
                 Button(isSaving ? "保存中" : "保存") {
                     Task { await attemptSaveRows() }
                 }
-                .disabled(parsedRows.isEmpty || isSaving || !settings.canAddCards(totalCardCount: totalCardCount, adding: parsedRows.count))
+                .disabled(parsedRows.isEmpty || isSaving)
             }
         }
         .onAppear {
@@ -196,6 +203,18 @@ struct OCRImportView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+        .alert("カード数の上限を超えています", isPresented: Binding(
+            get: { cardLimitWarningMessage != nil },
+            set: { if !$0 { cardLimitWarningMessage = nil } }
+        )) {
+            Button("プレミアムを見る") {
+                cardLimitWarningMessage = nil
+                showingPremiumUpgrade = true
+            }
+            Button("戻る", role: .cancel) {}
+        } message: {
+            Text(cardLimitWarningMessage ?? "")
         }
         .alert("重複があります", isPresented: Binding(
             get: { duplicateWarningMessage != nil },
@@ -229,6 +248,18 @@ struct OCRImportView: View {
 
     private var duplicateRowIDs: Set<String> {
         FlashcardDuplicateChecker.duplicateRowIDs(for: parsedRows, in: deck)
+    }
+
+    private var exceedsCardLimit: Bool {
+        !parsedRows.isEmpty && !settings.canAddCards(totalCardCount: totalCardCount, adding: parsedRows.count)
+    }
+
+    private var remainingFreeCardSlots: Int {
+        max(0, PremiumLimits.freeCards - totalCardCount)
+    }
+
+    private var cardLimitSummary: String {
+        "無料版のカード上限を超えています。追加可能: 残り\(remainingFreeCardSlots)枚 / 保存対象: \(parsedRows.count)枚"
     }
 
     private func handleStartSourceIfNeeded() {
@@ -289,6 +320,11 @@ struct OCRImportView: View {
 
     private func attemptSaveRows() async {
         let rows = parsedRows
+        guard settings.canAddCards(totalCardCount: totalCardCount, adding: rows.count) else {
+            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、設定でプレミアムに切り替えるか、読み取り結果を編集して保存対象を減らしてください。"
+            return
+        }
+
         if let warning = FlashcardDuplicateChecker.warningMessage(for: rows, in: deck) {
             duplicateWarningMessage = warning
             return
