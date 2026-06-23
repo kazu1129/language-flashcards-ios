@@ -60,6 +60,9 @@ enum DeckExporter {
             lines.append("   \(deck.languageTwoName): \(card.languageTwoText)")
             for meaning in card.meanings {
                 lines.append("   - \(meaning.meaning)")
+                if !meaning.synonyms.isEmpty {
+                    lines.append("     Synonyms: \(meaning.synonyms)")
+                }
                 if !meaning.example.isEmpty {
                     lines.append("     Example: \(meaning.example)")
                 }
@@ -82,7 +85,9 @@ enum DeckExporter {
             let japanese = card.languageOneText
             let english = card.languageTwoText
             let otherMeanings = card.meanings
-                .map(\.meaning)
+                .flatMap { meaning in
+                    [meaning.meaning, meaning.synonyms]
+                }
                 .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 .filter { !isSameMeaning($0, as: japanese) }
                 .joined(separator: " / ")
@@ -153,6 +158,9 @@ enum DeckExporter {
                 }
                 for meaning in card.meanings {
                     draw("Meaning: \(meaning.meaning)", font: .systemFont(ofSize: 13), spacing: 3)
+                    if !meaning.synonyms.isEmpty {
+                        draw("Synonyms: \(meaning.synonyms)", font: .systemFont(ofSize: 13), spacing: 3)
+                    }
                     if !meaning.example.isEmpty {
                         draw("Example: \(meaning.example)", font: .italicSystemFont(ofSize: 13), spacing: 3)
                     }

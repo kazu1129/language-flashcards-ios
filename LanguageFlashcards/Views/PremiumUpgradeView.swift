@@ -11,13 +11,12 @@ struct PremiumUpgradeView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("1週間無料プレミアムトライアル")
                             .font(.title.bold())
-                        Text("まずは7日間、カード数・AI補完・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
+                        Text("まずは7日間、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
                             .foregroundStyle(.secondary)
                     }
 
                     VStack(spacing: 12) {
                         PremiumBenefitRow(icon: "rectangle.stack.badge.plus", title: "カードとセットを無制限に", detail: "無料は3セット・100カードまで。")
-                        PremiumBenefitRow(icon: "sparkles", title: "Gemini補完をもっと使える", detail: "無料は1日5回まで。意味と例文作成を強化。")
                         PremiumBenefitRow(icon: "camera.viewfinder", title: "写真OCRをもっと使える", detail: "無料は月10回まで。メモ写真からまとめて追加。")
                         PremiumBenefitRow(icon: "chart.line.uptrend.xyaxis", title: "詳しい成果分析", detail: "長期推移や弱点の把握をしやすく。")
                         PremiumBenefitRow(icon: "square.and.arrow.up", title: "PDF共有に対応", detail: "学習セットをきれいに出力。")
@@ -65,7 +64,7 @@ struct PremiumHomeCard: View {
                         .font(.caption.bold())
                 }
 
-                Text("無制限カード、Gemini補完、OCR、PDF共有、詳しい成果分析を7日間試せます。")
+                Text("無制限カード、OCR、PDF共有、詳しい成果分析を7日間試せます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

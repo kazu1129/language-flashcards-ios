@@ -11,6 +11,9 @@ enum StudyScheduler {
 
     private static func score(_ card: Flashcard, now: Date) -> Double {
         let overdueHours = max(0, now.timeIntervalSince(card.dueAt) / 3600)
+        let retrievability = card.retrievability(at: now)
+        let forgettingPressure = (1 - retrievability) * 100
+        let difficultyPressure = card.fsrsDifficultyValue() * 4
         let uncertainty = Double(card.unknownCount * 8 + card.unsureCount * 4)
         let freshnessPenalty: Double
         if let lastReviewedAt = card.lastReviewedAt {
@@ -31,7 +34,6 @@ enum StudyScheduler {
             base = 70
         }
 
-        return base + overdueHours + uncertainty - freshnessPenalty
+        return base + forgettingPressure + difficultyPressure + overdueHours + uncertainty - freshnessPenalty
     }
 }
-

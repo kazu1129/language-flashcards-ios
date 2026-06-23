@@ -59,7 +59,7 @@ struct DeckDetailView: View {
                                 Text(card.languageOneText)
                                     .font(.headline)
                                     .foregroundStyle(.primary)
-                                Text(card.languageTwoText.isEmpty ? "Gemini補完または手入力待ち" : card.languageTwoText)
+                                Text(card.languageTwoText.isEmpty ? "手入力待ち" : card.languageTwoText)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 if let last = card.lastRating {
@@ -232,6 +232,7 @@ struct DeckDetailView: View {
             card.languageTwoText.localizedCaseInsensitiveContains(query) ||
             card.meanings.contains { meaning in
                 meaning.meaning.localizedCaseInsensitiveContains(query) ||
+                meaning.synonyms.localizedCaseInsensitiveContains(query) ||
                 meaning.example.localizedCaseInsensitiveContains(query) ||
                 meaning.exampleTranslation.localizedCaseInsensitiveContains(query)
             }

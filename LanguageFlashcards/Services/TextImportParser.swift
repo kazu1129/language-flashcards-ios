@@ -76,15 +76,15 @@ enum TextImportParser {
         }
 
         return .parsed(
-            TextImportParsedRow(
-                id: "\(index)-parsed",
-                rawLine: line,
-                languageOne: englishPart,
-                languageTwo: englishPart,
-                englishTerm: englishPart,
-                note: "英語のみ読み取れたため、第1言語は保存時にGemini補完できます。"
+                TextImportParsedRow(
+                    id: "\(index)-parsed",
+                    rawLine: line,
+                    languageOne: englishPart,
+                    languageTwo: englishPart,
+                    englishTerm: englishPart,
+                    note: "英語のみ読み取れたため、第1言語も同じ内容で仮登録します。必要に応じて編集してください。"
+                )
             )
-        )
     }
 
     private static func splitLine(_ line: String) -> [String] {

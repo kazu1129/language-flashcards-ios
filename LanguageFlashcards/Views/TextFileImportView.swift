@@ -15,7 +15,6 @@ struct TextFileImportView: View {
     @State private var selectedFileName: String?
     @State private var showingFileImporter = false
     @State private var showingPremiumUpgrade = false
-    @State private var shouldCompleteWithGemini = true
     @State private var duplicateWarningMessage: String?
     @State private var cardLimitWarningMessage: String?
     @State private var errorMessage: String?
@@ -107,22 +106,6 @@ struct TextFileImportView: View {
                 }
             }
 
-            if !parsedRows.isEmpty {
-                Section("意味と例文") {
-                    Toggle("Gemini（Google検索込み）で追加", isOn: $shouldCompleteWithGemini)
-                        .disabled(settings.geminiAPIKey.isEmpty)
-
-                    if settings.geminiAPIKey.isEmpty {
-                        Text("保存時に意味と例文を追加するには、設定でGemini APIキーを入力してください。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("無料版のGemini補完の残りは\(settings.totalFreeGeminiRemainingToday)回です。上限に達した後のカードは、意味と例文なしで保存します。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
         }
         .navigationTitle("ファイルから追加")
         .toolbar {
@@ -266,38 +249,13 @@ struct TextFileImportView: View {
         defer { isSaving = false }
 
         for row in rows {
-            var languageOne = row.languageOne
+            let languageOne = row.languageOne
             let languageTwo = row.languageTwo
-            var meanings: [MeaningEntry] = []
-
-            if shouldCompleteWithGemini,
-               !settings.geminiAPIKey.isEmpty,
-               settings.canUseGeminiCompletion() {
-                do {
-                    let suggestion = try await GeminiService().completeCard(
-                        languageOneText: row.englishTerm,
-                        languageOneName: deck.languageTwoName,
-                        languageTwoName: deck.languageOneName,
-                        apiKey: settings.geminiAPIKey,
-                        model: settings.geminiModel,
-                        exampleLanguageName: deck.languageTwoName,
-                        useGoogleSearch: true
-                    )
-                    if languageOne == row.englishTerm || languageOne.isEmpty {
-                        languageOne = suggestion.languageTwoText
-                    }
-                    meanings = suggestion.meanings
-                    settings.recordGeminiCompletion()
-                } catch {
-                    errorMessage = "一部の意味と例文を追加できませんでした。カード自体は保存します。\(error.localizedDescription)"
-                }
-            }
 
             deck.cards.append(
                 Flashcard(
                     languageOneText: languageOne,
-                    languageTwoText: languageTwo,
-                    meanings: meanings
+                    languageTwoText: languageTwo
                 )
             )
         }

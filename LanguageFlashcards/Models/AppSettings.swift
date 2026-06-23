@@ -75,7 +75,6 @@ enum SubscriptionTier: String, CaseIterable, Identifiable {
 enum PremiumLimits {
     static let freeDecks = 3
     static let freeCards = 100
-    static let freeGeminiCompletionsPerDay = 5
     static let freeOCRImportsPerMonth = 10
 }
 
@@ -87,18 +86,16 @@ final class AppSettings: ObservableObject {
         static let sessionCardCount = "sessionCardCount"
         static let fontScale = "fontScale"
         static let appearance = "appearance"
-        static let geminiModel = "geminiModel"
         static let subscriptionTier = "subscriptionTier"
         static let showCharacterOnHome = "showCharacterOnHome"
         static let studyReminderEnabled = "studyReminderEnabled"
         static let dailySummaryEnabled = "dailySummaryEnabled"
         static let anniversaryNotificationsEnabled = "anniversaryNotificationsEnabled"
         static let growthNotificationsEnabled = "growthNotificationsEnabled"
+        static let hasSeenFSRSOnboarding = "hasSeenFSRSOnboarding"
         static let hasBirthday = "hasBirthday"
         static let birthday = "birthday"
         static let lastNotifiedGrowthStage = "lastNotifiedGrowthStage"
-        static let geminiUsageDay = "geminiUsageDay"
-        static let geminiUsageCount = "geminiUsageCount"
         static let ocrUsageMonth = "ocrUsageMonth"
         static let ocrUsageCount = "ocrUsageCount"
     }
@@ -121,10 +118,6 @@ final class AppSettings: ObservableObject {
 
     @Published var appearance: AppearancePreference {
         didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) }
-    }
-
-    @Published var geminiModel: String {
-        didSet { defaults.set(geminiModel, forKey: Keys.geminiModel) }
     }
 
     @Published var subscriptionTier: SubscriptionTier {
@@ -151,16 +144,16 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(growthNotificationsEnabled, forKey: Keys.growthNotificationsEnabled) }
     }
 
+    @Published var hasSeenFSRSOnboarding: Bool {
+        didSet { defaults.set(hasSeenFSRSOnboarding, forKey: Keys.hasSeenFSRSOnboarding) }
+    }
+
     @Published var hasBirthday: Bool {
         didSet { defaults.set(hasBirthday, forKey: Keys.hasBirthday) }
     }
 
     @Published var birthday: Date {
         didSet { defaults.set(birthday.timeIntervalSince1970, forKey: Keys.birthday) }
-    }
-
-    @Published var geminiAPIKey: String {
-        didSet { KeychainService.saveGeminiAPIKey(geminiAPIKey) }
     }
 
     private let defaults: UserDefaults
@@ -174,25 +167,20 @@ final class AppSettings: ObservableObject {
         let savedScale = defaults.double(forKey: Keys.fontScale)
         self.fontScale = savedScale == 0 ? 1.0 : savedScale
         self.appearance = AppearancePreference(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
-        self.geminiModel = defaults.string(forKey: Keys.geminiModel) ?? "gemini-3.5-flash"
         self.subscriptionTier = SubscriptionTier(rawValue: defaults.string(forKey: Keys.subscriptionTier) ?? "") ?? .free
         self.showCharacterOnHome = defaults.object(forKey: Keys.showCharacterOnHome) as? Bool ?? true
         self.studyReminderEnabled = defaults.object(forKey: Keys.studyReminderEnabled) as? Bool ?? true
         self.dailySummaryEnabled = defaults.object(forKey: Keys.dailySummaryEnabled) as? Bool ?? true
         self.anniversaryNotificationsEnabled = defaults.object(forKey: Keys.anniversaryNotificationsEnabled) as? Bool ?? true
         self.growthNotificationsEnabled = defaults.object(forKey: Keys.growthNotificationsEnabled) as? Bool ?? true
+        self.hasSeenFSRSOnboarding = defaults.bool(forKey: Keys.hasSeenFSRSOnboarding)
         self.hasBirthday = defaults.bool(forKey: Keys.hasBirthday)
         let savedBirthday = defaults.double(forKey: Keys.birthday)
         self.birthday = savedBirthday == 0 ? Date() : Date(timeIntervalSince1970: savedBirthday)
-        self.geminiAPIKey = KeychainService.loadGeminiAPIKey()
     }
 
     var isPremium: Bool {
         subscriptionTier == .premium
-    }
-
-    var totalFreeGeminiRemainingToday: Int {
-        max(0, PremiumLimits.freeGeminiCompletionsPerDay - usageCount(forCountKey: Keys.geminiUsageCount, periodKey: Keys.geminiUsageDay, currentPeriod: Self.dayKey()))
     }
 
     var totalFreeOCRRemainingThisMonth: Int {
@@ -205,15 +193,6 @@ final class AppSettings: ObservableObject {
 
     func canAddCards(totalCardCount: Int, adding count: Int) -> Bool {
         isPremium || totalCardCount + count <= PremiumLimits.freeCards
-    }
-
-    func canUseGeminiCompletion() -> Bool {
-        isPremium || totalFreeGeminiRemainingToday > 0
-    }
-
-    func recordGeminiCompletion() {
-        guard !isPremium else { return }
-        incrementUsage(forCountKey: Keys.geminiUsageCount, periodKey: Keys.geminiUsageDay, currentPeriod: Self.dayKey())
     }
 
     func canUseOCRImport() -> Bool {
@@ -231,6 +210,11 @@ final class AppSettings: ObservableObject {
 
     func markGrowthStageNotified(_ level: Int) {
         defaults.set(level, forKey: Keys.lastNotifiedGrowthStage)
+    }
+
+    func resetForLogout() {
+        subscriptionTier = .free
+        hasSeenFSRSOnboarding = false
     }
 
     private func usageCount(forCountKey countKey: String, periodKey: String, currentPeriod: String) -> Int {

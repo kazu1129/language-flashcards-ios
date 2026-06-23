@@ -12,8 +12,6 @@ struct CardEditorView: View {
     @State private var languageOneText: String
     @State private var languageTwoText: String
     @State private var meanings: [MeaningEntry]
-    @State private var isCompleting = false
-    @State private var errorMessage: String?
     @State private var duplicateWarningMessage: String?
     @State private var showingPremiumUpgrade = false
 
@@ -42,41 +40,12 @@ struct CardEditorView: View {
                 }
             }
 
-            Section {
-                Button {
-                    if settings.canUseGeminiCompletion() {
-                        Task { await completeWithGemini() }
-                    } else {
-                        showingPremiumUpgrade = true
-                    }
-                } label: {
-                    if isCompleting {
-                        ProgressView()
-                    } else {
-                        Label("Gemini（Google検索込み）で意味と例文を補完", systemImage: "sparkles")
-                    }
-                }
-                .disabled(isCompleting || languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || settings.geminiAPIKey.isEmpty)
-
-                if settings.geminiAPIKey.isEmpty {
-                    Text("Gemini補完を使うには、設定でAPIキーを入力してください。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else if !settings.isPremium {
-                    Text("無料版のGemini補完は1日\(PremiumLimits.freeGeminiCompletionsPerDay)回まで。残り\(settings.totalFreeGeminiRemainingToday)回です。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Gemini APIのGoogle検索機能で、意味と例文を補完します。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("意味と例文") {
+            Section("意味・同義語・例文") {
                 ForEach($meanings) { $meaning in
                     VStack(alignment: .leading, spacing: 8) {
                         TextField("意味", text: $meaning.meaning, axis: .vertical)
+                            .lineLimit(1...3)
+                        TextField("同義語", text: $meaning.synonyms, axis: .vertical)
                             .lineLimit(1...3)
                         TextField("例文", text: $meaning.example, axis: .vertical)
                             .lineLimit(1...4)
@@ -106,16 +75,8 @@ struct CardEditorView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") { save() }
-                    .disabled(languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCompleting)
+                    .disabled(languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-        }
-        .alert("Gemini補完に失敗しました", isPresented: Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
         }
         .alert("重複があります", isPresented: Binding(
             get: { duplicateWarningMessage != nil },
@@ -143,29 +104,10 @@ struct CardEditorView: View {
         )
     }
 
-    private func completeWithGemini() async {
-        isCompleting = true
-        defer { isCompleting = false }
-
-        do {
-            let suggestion = try await GeminiService().completeCard(
-                languageOneText: languageOneText,
-                languageOneName: deck.languageOneName,
-                languageTwoName: deck.languageTwoName,
-                apiKey: settings.geminiAPIKey,
-                model: settings.geminiModel
-            )
-            languageTwoText = suggestion.languageTwoText
-            meanings = suggestion.meanings.isEmpty ? [MeaningEntry()] : suggestion.meanings
-            settings.recordGeminiCompletion()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
     private func save(allowDuplicate: Bool = false) {
         let cleanedMeanings = meanings.filter { entry in
             !entry.meaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !entry.synonyms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !entry.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !entry.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }

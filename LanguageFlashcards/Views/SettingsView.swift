@@ -2,9 +2,13 @@ import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
+    @Query(sort: \FlashcardDeck.updatedAt, order: .forward) private var decks: [FlashcardDeck]
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
     @State private var showingPremiumUpgrade = false
+    @State private var showingLogoutConfirmation = false
+    @State private var showingDeleteAllConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -89,20 +93,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Gemini") {
-                    SecureField("APIキー", text: $settings.geminiAPIKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    TextField("モデル", text: $settings.geminiModel)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Text("APIキーは端末のKeychainに保存され、GitHubには保存されません。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
                 Section("サポートと規約") {
                     NavigationLink {
                         AppInfoDocumentView(document: .manual)
@@ -122,8 +112,38 @@ struct SettingsView: View {
                         Label("利用規約", systemImage: "doc.text")
                     }
                 }
+
+                Section("アカウントとデータ") {
+                    Button {
+                        showingLogoutConfirmation = true
+                    } label: {
+                        Label("ログアウト", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+
+                    Button(role: .destructive) {
+                        showingDeleteAllConfirmation = true
+                    } label: {
+                        Label("全ての記録を削除", systemImage: "trash")
+                    }
+                }
             }
             .navigationTitle("設定")
+            .alert("ログアウトしますか？", isPresented: $showingLogoutConfirmation) {
+                Button("ログアウト", role: .destructive) {
+                    settings.resetForLogout()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("現在はアプリ内アカウント機能がないため、プレミアム状態を無料に戻し、初回説明を再表示します。カードと学習記録は削除されません。")
+            }
+            .alert("全ての記録を削除しますか？", isPresented: $showingDeleteAllConfirmation) {
+                Button("削除", role: .destructive) {
+                    deleteAllRecords()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("全てのフラッシュカードセット、カード、学習履歴を削除します。この操作は元に戻せません。")
+            }
             .sheet(isPresented: $showingPremiumUpgrade) {
                 PremiumUpgradeView()
             }
@@ -136,5 +156,15 @@ struct SettingsView: View {
 
     private var currentStage: CharacterGrowthStage {
         LearningProgress.currentStage(for: streakDays)
+    }
+
+    private func deleteAllRecords() {
+        for deck in decks {
+            modelContext.delete(deck)
+        }
+        for review in reviews {
+            modelContext.delete(review)
+        }
+        try? modelContext.save()
     }
 }

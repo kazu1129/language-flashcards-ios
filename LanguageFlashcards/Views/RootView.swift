@@ -59,6 +59,14 @@ struct RootView: View {
         .onChange(of: settings.birthday) {
             Task { await refreshNotifications() }
         }
+        .sheet(isPresented: Binding(
+            get: { !settings.hasSeenFSRSOnboarding },
+            set: { if !$0 { settings.hasSeenFSRSOnboarding = true } }
+        )) {
+            FSRSOnboardingView {
+                settings.hasSeenFSRSOnboarding = true
+            }
+        }
     }
 
     private func refreshNotifications() async {

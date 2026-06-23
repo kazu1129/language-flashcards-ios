@@ -320,12 +320,22 @@ private struct FlashcardStudyCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         if card.meanings.isEmpty {
-                            Text("意味と例文は未入力です。カード編集画面で入力、またはGemini（Google検索込み）で補完できます。")
+                            Text("意味・同義語・例文は未入力です。カード編集画面で入力できます。")
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(card.meanings) { meaning in
                                 if shouldShowMeaningCard(meaning) {
                                     VStack(alignment: .leading, spacing: 8) {
+                                        if !meaning.synonyms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("同義語")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                Text(meaning.synonyms)
+                                                    .font(.system(size: 17 * fontScale, weight: .semibold))
+                                            }
+                                        }
+
                                         if shouldShowAdditionalMeaning(meaning.meaning) {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text("それ以外の意味")
@@ -397,6 +407,7 @@ private struct FlashcardStudyCard: View {
 
     private func shouldShowMeaningCard(_ meaning: MeaningEntry) -> Bool {
         shouldShowAdditionalMeaning(meaning.meaning) ||
+        !meaning.synonyms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         !meaning.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         !meaning.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
