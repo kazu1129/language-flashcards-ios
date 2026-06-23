@@ -310,6 +310,11 @@ private struct FlashcardStudyCard: View {
             if flipped {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
+                        Text(card.visibleText(for: shownSide))
+                            .font(.system(size: 18 * fontScale, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
                         Text(card.answerText(for: shownSide))
                             .font(.system(size: 32 * fontScale, weight: .bold))
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -319,22 +324,43 @@ private struct FlashcardStudyCard: View {
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(card.meanings) { meaning in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(meaning.meaning)
-                                        .font(.system(size: 19 * fontScale, weight: .semibold))
-                                    if !meaning.example.isEmpty {
-                                        Text(meaning.example)
-                                            .font(.system(size: 17 * fontScale))
+                                if shouldShowMeaningCard(meaning) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        if shouldShowAdditionalMeaning(meaning.meaning) {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("それ以外の意味")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                Text(meaning.meaning)
+                                                    .font(.system(size: 19 * fontScale, weight: .semibold))
+                                            }
+                                        }
+
+                                        if !meaning.example.isEmpty {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("英語例文")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                Text(meaning.example)
+                                                    .font(.system(size: 17 * fontScale))
+                                            }
+                                        }
+
+                                        if !meaning.exampleTranslation.isEmpty {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("日本語例文")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                Text(meaning.exampleTranslation)
+                                                    .font(.system(size: 15 * fontScale))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
                                     }
-                                    if !meaning.exampleTranslation.isEmpty {
-                                        Text(meaning.exampleTranslation)
-                                            .font(.system(size: 15 * fontScale))
-                                            .foregroundStyle(.secondary)
-                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
                                 }
-                                .padding()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
                             }
                         }
                     }
@@ -361,5 +387,24 @@ private struct FlashcardStudyCard: View {
         .frame(maxWidth: .infinity)
         .frame(height: 430)
         .contentShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func shouldShowAdditionalMeaning(_ meaning: String) -> Bool {
+        let cleanedMeaning = normalize(meaning)
+        guard !cleanedMeaning.isEmpty else { return false }
+        return cleanedMeaning != normalize(card.answerText(for: shownSide))
+    }
+
+    private func shouldShowMeaningCard(_ meaning: MeaningEntry) -> Bool {
+        shouldShowAdditionalMeaning(meaning.meaning) ||
+        !meaning.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !meaning.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func normalize(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current)
+            .lowercased()
     }
 }

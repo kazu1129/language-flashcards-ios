@@ -8,6 +8,7 @@ struct DeckDetailView: View {
     @Bindable var deck: FlashcardDeck
     var onShowDashboard: () -> Void = {}
 
+    @State private var showingDeckEditor = false
     @State private var showingManualEntry = false
     @State private var showingFileImport = false
     @State private var showingPremiumUpgrade = false
@@ -105,7 +106,14 @@ struct DeckDetailView: View {
         .navigationTitle(deck.name)
         .searchable(text: $searchText, prompt: "単語や表現を検索")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                Button {
+                    showingDeckEditor = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .accessibilityLabel("セット名を編集")
+
                 if !deck.cards.isEmpty {
                     EditButton()
                 }
@@ -154,6 +162,7 @@ struct DeckDetailView: View {
 
                 Menu {
                     Button("TXTで共有") { export(.text) }
+                    Button("CSVで共有") { export(.csv) }
                     Button(settings.isPremium ? "PDFで共有" : "PDFで共有（プレミアム）") {
                         if settings.isPremium {
                             export(.pdf)
@@ -166,6 +175,11 @@ struct DeckDetailView: View {
                 }
                 .accessibilityLabel("共有")
                 .disabled(deck.cards.isEmpty)
+            }
+        }
+        .sheet(isPresented: $showingDeckEditor) {
+            NavigationStack {
+                DeckEditorView(deck: deck)
             }
         }
         .sheet(isPresented: $showingManualEntry) {

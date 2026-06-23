@@ -3,6 +3,7 @@ import UIKit
 
 enum DeckExportFormat: String, CaseIterable, Identifiable {
     case text
+    case csv
     case pdf
 
     var id: String { rawValue }
@@ -11,6 +12,8 @@ enum DeckExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .text:
             "TXT"
+        case .csv:
+            "CSV"
         case .pdf:
             "PDF"
         }
@@ -20,6 +23,8 @@ enum DeckExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .text:
             "txt"
+        case .csv:
+            "csv"
         case .pdf:
             "pdf"
         }
@@ -36,6 +41,8 @@ enum DeckExporter {
         switch format {
         case .text:
             try exportText(deck: deck, to: url)
+        case .csv:
+            try exportCSV(deck: deck, to: url)
         case .pdf:
             try exportPDF(deck: deck, to: url)
         }
@@ -64,6 +71,39 @@ enum DeckExporter {
         }
 
         try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func exportCSV(deck: FlashcardDeck, to url: URL) throws {
+        var rows: [[String]] = [
+            ["英語", "日本語", "それ以外の意味", "英語例文", "日本語例文"]
+        ]
+
+        for card in deck.sortedCards {
+            let japanese = card.languageOneText
+            let english = card.languageTwoText
+            let otherMeanings = card.meanings
+                .map(\.meaning)
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .filter { !isSameMeaning($0, as: japanese) }
+                .joined(separator: " / ")
+            let englishExamples = card.meanings
+                .map(\.example)
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .joined(separator: " / ")
+            let japaneseExamples = card.meanings
+                .map(\.exampleTranslation)
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .joined(separator: " / ")
+
+            rows.append([english, japanese, otherMeanings, englishExamples, japaneseExamples])
+        }
+
+        let csv = rows.map { row in
+            row.map(escapeCSVField).joined(separator: ",")
+        }
+        .joined(separator: "\n")
+
+        try csv.write(to: url, atomically: true, encoding: .utf8)
     }
 
     private static func exportPDF(deck: FlashcardDeck, to url: URL) throws {
@@ -124,5 +164,24 @@ enum DeckExporter {
             }
         }
     }
-}
 
+    private static func escapeCSVField(_ field: String) -> String {
+        let needsQuotes = field.contains(",") ||
+            field.contains("\"") ||
+            field.contains("\n") ||
+            field.contains("\r")
+        let escaped = field.replacingOccurrences(of: "\"", with: "\"\"")
+        return needsQuotes ? "\"\(escaped)\"" : escaped
+    }
+
+    private static func isSameMeaning(_ left: String, as right: String) -> Bool {
+        normalize(left) == normalize(right)
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current)
+            .lowercased()
+    }
+}
