@@ -9,9 +9,9 @@ struct PremiumUpgradeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("プレミアムで、学習を続けやすく")
+                        Text("1週間無料プレミアムトライアル")
                             .font(.title.bold())
-                        Text("無料でも学習はできます。プレミアムでは、カード数・AI補完・OCR・分析・共有を広げられます。")
+                        Text("まずは7日間、カード数・AI補完・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
                             .foregroundStyle(.secondary)
                     }
 
@@ -28,13 +28,13 @@ struct PremiumUpgradeView: View {
                         settings.subscriptionTier = .premium
                         dismiss()
                     } label: {
-                        Text("プレミアムに切り替える")
+                        Text("1週間無料プレミアムトライアルを開始")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
 
-                    Text("現在は開発用の切替です。App Store公開時はAppleのサブスクリプション購入状態と連携します。")
+                    Text("現在は開発用の切替です。App Store公開時はAppleの1週間無料トライアル付きサブスクリプション購入状態と連携します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -58,14 +58,14 @@ struct PremiumHomeCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("プレミアムで学習を広げる", systemImage: "crown.fill")
+                    Label("1週間無料プレミアムトライアル", systemImage: "crown.fill")
                         .font(.headline)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.bold())
                 }
 
-                Text("無制限カード、Gemini補完、OCR、PDF共有、詳しい成果分析が使えます。")
+                Text("無制限カード、Gemini補完、OCR、PDF共有、詳しい成果分析を7日間試せます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -101,4 +101,3 @@ private struct PremiumBenefitRow: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
-

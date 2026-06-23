@@ -23,11 +23,11 @@ struct SettingsView: View {
                         Button {
                             showingPremiumUpgrade = true
                         } label: {
-                            Label("プレミアムのメリットを見る", systemImage: "crown")
+                            Label("1週間無料トライアルを見る", systemImage: "crown")
                         }
                     }
 
-                    Text("この切替は開発用です。本番公開時はAppleのサブスクリプション購入状態と連携します。")
+                    Text("この切替は開発用です。本番公開時はAppleの1週間無料トライアル付きサブスクリプション購入状態と連携します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -101,6 +101,26 @@ struct SettingsView: View {
                     Text("APIキーは端末のKeychainに保存され、GitHubには保存されません。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("サポートと規約") {
+                    NavigationLink {
+                        AppInfoDocumentView(document: .manual)
+                    } label: {
+                        Label("取説", systemImage: "book")
+                    }
+
+                    NavigationLink {
+                        AppInfoDocumentView(document: .privacyPolicy)
+                    } label: {
+                        Label("プライバシーポリシー", systemImage: "hand.raised")
+                    }
+
+                    NavigationLink {
+                        AppInfoDocumentView(document: .termsOfUse)
+                    } label: {
+                        Label("利用規約", systemImage: "doc.text")
+                    }
                 }
             }
             .navigationTitle("設定")

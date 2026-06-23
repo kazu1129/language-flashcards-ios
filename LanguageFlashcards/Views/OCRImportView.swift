@@ -89,7 +89,7 @@ struct OCRImportView: View {
                 }
 
                 if !settings.canUseOCRImport() {
-                    Button("プレミアムでOCRを続ける") {
+                    Button("1週間無料トライアルでOCRを続ける") {
                         showingPremiumUpgrade = true
                     }
                 }
@@ -208,7 +208,7 @@ struct OCRImportView: View {
             get: { cardLimitWarningMessage != nil },
             set: { if !$0 { cardLimitWarningMessage = nil } }
         )) {
-            Button("プレミアムを見る") {
+            Button("1週間無料トライアルを見る") {
                 cardLimitWarningMessage = nil
                 showingPremiumUpgrade = true
             }
@@ -321,7 +321,7 @@ struct OCRImportView: View {
     private func attemptSaveRows() async {
         let rows = parsedRows
         guard settings.canAddCards(totalCardCount: totalCardCount, adding: rows.count) else {
-            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、設定でプレミアムに切り替えるか、読み取り結果を編集して保存対象を減らしてください。"
+            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、1週間無料プレミアムトライアルを開始するか、読み取り結果を編集して保存対象を減らしてください。"
             return
         }
 

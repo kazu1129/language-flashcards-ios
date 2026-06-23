@@ -155,7 +155,7 @@ struct TextFileImportView: View {
             get: { cardLimitWarningMessage != nil },
             set: { if !$0 { cardLimitWarningMessage = nil } }
         )) {
-            Button("プレミアムを見る") {
+            Button("1週間無料トライアルを見る") {
                 cardLimitWarningMessage = nil
                 showingPremiumUpgrade = true
             }
@@ -245,7 +245,7 @@ struct TextFileImportView: View {
     private func attemptSaveRows() async {
         let rows = parsedRows
         guard settings.canAddCards(totalCardCount: totalCardCount, adding: rows.count) else {
-            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、設定でプレミアムに切り替えるか、読み取り結果を編集して保存対象を減らしてください。"
+            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、1週間無料プレミアムトライアルを開始するか、読み取り結果を編集して保存対象を減らしてください。"
             return
         }
 
