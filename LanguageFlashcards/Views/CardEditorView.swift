@@ -14,6 +14,7 @@ struct CardEditorView: View {
     @State private var meanings: [MeaningEntry]
     @State private var isCompleting = false
     @State private var errorMessage: String?
+    @State private var duplicateWarningMessage: String?
     @State private var showingPremiumUpgrade = false
 
     init(deck: FlashcardDeck, card: Flashcard? = nil, totalCardCount: Int = 0) {
@@ -33,6 +34,12 @@ struct CardEditorView: View {
                     .lineLimit(1...4)
                 TextField(deck.languageTwoName, text: $languageTwoText, axis: .vertical)
                     .lineLimit(1...4)
+
+                if hasDuplicate {
+                    Label("同じ単語/表現がすでに登録されている可能性があります。", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
 
             Section {
@@ -110,9 +117,30 @@ struct CardEditorView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        .alert("重複があります", isPresented: Binding(
+            get: { duplicateWarningMessage != nil },
+            set: { if !$0 { duplicateWarningMessage = nil } }
+        )) {
+            Button("重複を含めて保存") {
+                duplicateWarningMessage = nil
+                save(allowDuplicate: true)
+            }
+            Button("戻る", role: .cancel) {}
+        } message: {
+            Text(duplicateWarningMessage ?? "")
+        }
         .sheet(isPresented: $showingPremiumUpgrade) {
             PremiumUpgradeView()
         }
+    }
+
+    private var hasDuplicate: Bool {
+        FlashcardDuplicateChecker.hasDuplicate(
+            in: deck,
+            languageOne: languageOneText,
+            languageTwo: languageTwoText,
+            excluding: card?.id
+        )
     }
 
     private func completeWithGemini() async {
@@ -135,16 +163,29 @@ struct CardEditorView: View {
         }
     }
 
-    private func save() {
+    private func save(allowDuplicate: Bool = false) {
         let cleanedMeanings = meanings.filter { entry in
             !entry.meaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !entry.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !entry.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+        let cleanedLanguageOne = languageOneText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedLanguageTwo = languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !allowDuplicate,
+           FlashcardDuplicateChecker.hasDuplicate(
+               in: deck,
+               languageOne: cleanedLanguageOne,
+               languageTwo: cleanedLanguageTwo,
+               excluding: card?.id
+           ) {
+            duplicateWarningMessage = "同じ単語/表現がすでに登録されている可能性があります。保存してもよいか確認してください。"
+            return
+        }
 
         if let card {
-            card.languageOneText = languageOneText.trimmingCharacters(in: .whitespacesAndNewlines)
-            card.languageTwoText = languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines)
+            card.languageOneText = cleanedLanguageOne
+            card.languageTwoText = cleanedLanguageTwo
             card.meanings = cleanedMeanings
             card.updatedAt = .now
         } else {
@@ -153,8 +194,8 @@ struct CardEditorView: View {
                 return
             }
             let newCard = Flashcard(
-                languageOneText: languageOneText.trimmingCharacters(in: .whitespacesAndNewlines),
-                languageTwoText: languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines),
+                languageOneText: cleanedLanguageOne,
+                languageTwoText: cleanedLanguageTwo,
                 meanings: cleanedMeanings
             )
             deck.cards.append(newCard)

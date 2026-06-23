@@ -1,55 +1,32 @@
-import PhotosUI
 import SwiftData
 import SwiftUI
-import UIKit
+import UniformTypeIdentifiers
 
-enum OCRImportStartSource: String, Identifiable {
-    case camera
-    case library
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .camera:
-            "写真を撮る"
-        case .library:
-            "写真を選ぶ"
-        }
-    }
-}
-
-struct OCRImportView: View {
+struct TextFileImportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
     @Bindable var deck: FlashcardDeck
 
     private let totalCardCount: Int
-    private let startSource: OCRImportStartSource?
     private let onComplete: () -> Void
 
-    @State private var selectedItem: PhotosPickerItem?
-    @State private var cameraImage: UIImage?
-    @State private var recognizedText = ""
-    @State private var isRecognizing = false
-    @State private var isSaving = false
-    @State private var errorMessage: String?
-    @State private var showingCamera = false
+    @State private var importedText = ""
+    @State private var selectedFileName: String?
+    @State private var showingFileImporter = false
     @State private var showingPremiumUpgrade = false
-    @State private var didHandleStartSource = false
     @State private var shouldCompleteWithGemini = true
     @State private var duplicateWarningMessage: String?
+    @State private var errorMessage: String?
+    @State private var isSaving = false
 
     init(
         deck: FlashcardDeck,
         totalCardCount: Int = 0,
-        startSource: OCRImportStartSource? = nil,
         onComplete: @escaping () -> Void = {}
     ) {
         self._deck = Bindable(deck)
         self.totalCardCount = totalCardCount
-        self.startSource = startSource
         self.onComplete = onComplete
     }
 
@@ -57,49 +34,24 @@ struct OCRImportView: View {
         Form {
             Section {
                 Button {
-                    openCamera()
+                    showingFileImporter = true
                 } label: {
-                    Label("写真を撮る", systemImage: "camera")
-                }
-                .disabled(!settings.canUseOCRImport() || !UIImagePickerController.isSourceTypeAvailable(.camera))
-
-                PhotosPicker(selection: $selectedItem, matching: .images) {
-                    Label("写真を選ぶ", systemImage: "photo.on.rectangle")
-                }
-                .disabled(!settings.canUseOCRImport())
-
-                if isRecognizing {
-                    HStack {
-                        ProgressView()
-                        Text("文字を読み取り中")
-                    }
+                    Label("CSV/TXTファイルを選ぶ", systemImage: "doc.badge.plus")
                 }
 
-                if !UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Text("この端末ではカメラ撮影を使えません。写真ライブラリから選んでください。")
+                if let selectedFileName {
+                    Text(selectedFileName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                }
-
-                if !settings.isPremium {
-                    Text("無料版の写真OCRは月\(PremiumLimits.freeOCRImportsPerMonth)回まで。残り\(settings.totalFreeOCRRemainingThisMonth)回です。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if !settings.canUseOCRImport() {
-                    Button("プレミアムでOCRを続ける") {
-                        showingPremiumUpgrade = true
-                    }
                 }
             }
 
             Section("読み取り結果を編集") {
-                TextEditor(text: $recognizedText)
+                TextEditor(text: $importedText)
                     .frame(minHeight: 180)
                     .overlay(alignment: .topLeading) {
-                        if recognizedText.isEmpty {
-                            Text("写真から抽出した文字がここに入ります。読み取りが違う場合は、この画面で修正できます。")
+                        if importedText.isEmpty {
+                            Text("CSV/TXTから読み込んだ内容がここに入ります。必要に応じて保存前に修正できます。")
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
@@ -109,7 +61,7 @@ struct OCRImportView: View {
 
             Section("保存されるカード") {
                 if parsedRows.isEmpty {
-                    Text("英語のword/phraseを含む行だけ保存します。日本語など第1言語も同じ行にあれば、ペアとして登録します。")
+                    Text("英語と日本語の順序は任意です。英語のword/phraseを見つけて、自動的に第2言語側へ振り分けます。")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(parsedRows) { row in
@@ -158,14 +110,14 @@ struct OCRImportView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("Chromeを直接操作せず、Gemini APIのGoogle検索機能で意味と例文を補完します。無料版の残りは\(settings.totalFreeGeminiRemainingToday)回です。")
+                        Text("無料版のGemini補完の残りは\(settings.totalFreeGeminiRemainingToday)回です。上限に達した後のカードは、意味と例文なしで保存します。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
         }
-        .navigationTitle("写真から追加")
+        .navigationTitle("ファイルから追加")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル") { dismiss() }
@@ -177,19 +129,14 @@ struct OCRImportView: View {
                 .disabled(parsedRows.isEmpty || isSaving || !settings.canAddCards(totalCardCount: totalCardCount, adding: parsedRows.count))
             }
         }
-        .onAppear {
-            handleStartSourceIfNeeded()
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.commaSeparatedText, .plainText, .text],
+            allowsMultipleSelection: false
+        ) { result in
+            handleFileImport(result)
         }
-        .task(id: selectedItem) {
-            await recognizeSelectedImage()
-        }
-        .sheet(isPresented: $showingCamera) {
-            CameraCaptureView(image: $cameraImage) { image in
-                Task { await recognize(image: image) }
-            }
-                .ignoresSafeArea()
-        }
-        .alert("処理できませんでした", isPresented: Binding(
+        .alert("読み込めませんでした", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
@@ -216,7 +163,7 @@ struct OCRImportView: View {
     }
 
     private var parseResult: TextImportParseResult {
-        TextImportParser.parse(recognizedText)
+        TextImportParser.parse(importedText)
     }
 
     private var parsedRows: [TextImportParsedRow] {
@@ -231,60 +178,37 @@ struct OCRImportView: View {
         FlashcardDuplicateChecker.duplicateRowIDs(for: parsedRows, in: deck)
     }
 
-    private func handleStartSourceIfNeeded() {
-        guard !didHandleStartSource else { return }
-        didHandleStartSource = true
-        if startSource == .camera {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                openCamera()
-            }
-        }
-    }
-
-    private func openCamera() {
-        guard settings.canUseOCRImport() else {
-            showingPremiumUpgrade = true
-            return
-        }
-        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
-            errorMessage = "この端末ではカメラ撮影を使えません。写真ライブラリから選んでください。"
-            return
-        }
-        showingCamera = true
-    }
-
-    private func recognizeSelectedImage() async {
-        guard let selectedItem else { return }
-        guard settings.canUseOCRImport() else {
-            showingPremiumUpgrade = true
-            return
-        }
-
+    private func handleFileImport(_ result: Result<[URL], Error>) {
         do {
-            guard let data = try await selectedItem.loadTransferable(type: Data.self),
-                  let image = UIImage(data: data) else {
-                throw OCRServiceError.missingImage
+            guard let url = try result.get().first else { return }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if didAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
             }
-            await recognize(image: image)
+
+            let data = try Data(contentsOf: url)
+            guard let text = decodeText(from: data) else {
+                errorMessage = "UTF-8または日本語の一般的な文字コードとして読み取れませんでした。"
+                return
+            }
+
+            importedText = text
+            selectedFileName = url.lastPathComponent
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    private func recognize(image: UIImage) async {
-        guard settings.canUseOCRImport() else {
-            showingPremiumUpgrade = true
-            return
+    private func decodeText(from data: Data) -> String? {
+        let encodings: [String.Encoding] = [.utf8, .utf16, .shiftJIS, .japaneseEUC]
+        for encoding in encodings {
+            if let text = String(data: data, encoding: encoding) {
+                return text
+            }
         }
-        isRecognizing = true
-        defer { isRecognizing = false }
-
-        do {
-            recognizedText = try await OCRService().recognizeText(from: image)
-            settings.recordOCRImport()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        return nil
     }
 
     private func attemptSaveRows() async {

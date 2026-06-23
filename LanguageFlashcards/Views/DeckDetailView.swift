@@ -9,11 +9,13 @@ struct DeckDetailView: View {
     var onShowDashboard: () -> Void = {}
 
     @State private var showingManualEntry = false
+    @State private var showingFileImport = false
     @State private var showingPremiumUpgrade = false
     @State private var editingCard: Flashcard?
     @State private var ocrStartSource: OCRImportStartSource?
     @State private var shareFile: ShareFile?
     @State private var exportError: String?
+    @State private var searchText = ""
 
     var body: some View {
         List {
@@ -39,10 +41,16 @@ struct DeckDetailView: View {
                     ContentUnavailableView(
                         "カードがありません",
                         systemImage: "plus.rectangle.on.rectangle",
-                        description: Text("直接入力または写真から追加できます。")
+                        description: Text("直接入力、写真、CSV/TXTから追加できます。")
+                    )
+                } else if filteredCards.isEmpty {
+                    ContentUnavailableView(
+                        "見つかりません",
+                        systemImage: "magnifyingglass",
+                        description: Text("検索語を変えてもう一度試してください。")
                     )
                 } else {
-                    ForEach(deck.sortedCards) { card in
+                    ForEach(filteredCards) { card in
                         Button {
                             editingCard = card
                         } label: {
@@ -61,13 +69,47 @@ struct DeckDetailView: View {
                             }
                             .padding(.vertical, 4)
                         }
+                        .contextMenu {
+                            Button {
+                                editingCard = card
+                            } label: {
+                                Label("編集", systemImage: "pencil")
+                            }
+
+                            Button(role: .destructive) {
+                                deleteCard(card)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deleteCard(card)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                editingCard = card
+                            } label: {
+                                Label("編集", systemImage: "pencil")
+                            }
+                            .tint(.blue)
+                        }
                     }
                     .onDelete(perform: deleteCards)
                 }
             }
         }
         .navigationTitle(deck.name)
+        .searchable(text: $searchText, prompt: "単語や表現を検索")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                if !deck.cards.isEmpty {
+                    EditButton()
+                }
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
                     Button {
@@ -98,6 +140,12 @@ struct DeckDetailView: View {
                         }
                     } label: {
                         Label("写真を選ぶ", systemImage: "photo.on.rectangle")
+                    }
+
+                    Button {
+                        showingFileImport = true
+                    } label: {
+                        Label("CSV/TXTを読み込む", systemImage: "doc.badge.plus")
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -130,6 +178,11 @@ struct DeckDetailView: View {
                 OCRImportView(deck: deck, totalCardCount: totalCardCount, startSource: source)
             }
         }
+        .sheet(isPresented: $showingFileImport) {
+            NavigationStack {
+                TextFileImportView(deck: deck, totalCardCount: totalCardCount)
+            }
+        }
         .sheet(item: $editingCard) { card in
             NavigationStack {
                 CardEditorView(deck: deck, card: card, totalCardCount: totalCardCount)
@@ -155,12 +208,34 @@ struct DeckDetailView: View {
         allDecks.reduce(0) { $0 + $1.cards.count }
     }
 
-    private func deleteCards(at offsets: IndexSet) {
+    private var filteredCards: [Flashcard] {
         let cards = deck.sortedCards
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return cards }
+
+        return cards.filter { card in
+            card.languageOneText.localizedCaseInsensitiveContains(query) ||
+            card.languageTwoText.localizedCaseInsensitiveContains(query) ||
+            card.meanings.contains { meaning in
+                meaning.meaning.localizedCaseInsensitiveContains(query) ||
+                meaning.example.localizedCaseInsensitiveContains(query) ||
+                meaning.exampleTranslation.localizedCaseInsensitiveContains(query)
+            }
+        }
+    }
+
+    private func deleteCards(at offsets: IndexSet) {
+        let cards = filteredCards
         for index in offsets {
             modelContext.delete(cards[index])
         }
         deck.updatedAt = .now
+    }
+
+    private func deleteCard(_ card: Flashcard) {
+        modelContext.delete(card)
+        deck.updatedAt = .now
+        try? modelContext.save()
     }
 
     private func export(_ format: DeckExportFormat) {

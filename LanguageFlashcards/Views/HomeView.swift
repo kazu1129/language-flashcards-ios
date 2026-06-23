@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var showingDeckEditor = false
     @State private var showingPremiumUpgrade = false
     @State private var homeImportSource: OCRImportStartSource?
+    @State private var showingHomeFileImport = false
 
     var body: some View {
         NavigationStack {
@@ -86,6 +87,12 @@ struct HomeView: View {
                         } label: {
                             Label("写真を選ぶ", systemImage: "photo.on.rectangle")
                         }
+
+                        Button {
+                            showingHomeFileImport = true
+                        } label: {
+                            Label("CSV/TXTを読み込む", systemImage: "doc.badge.plus")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -103,6 +110,11 @@ struct HomeView: View {
             .sheet(item: $homeImportSource) { source in
                 NavigationStack {
                     HomeOCRImportDestinationView(source: source)
+                }
+            }
+            .sheet(isPresented: $showingHomeFileImport) {
+                NavigationStack {
+                    HomeTextFileImportDestinationView()
                 }
             }
         }
@@ -162,6 +174,54 @@ private struct HomeOCRImportDestinationView: View {
             }
         }
         .navigationTitle(source.title)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("閉じる") { dismiss() }
+            }
+        }
+    }
+
+    private var totalCardCount: Int {
+        decks.reduce(0) { $0 + $1.cards.count }
+    }
+}
+
+private struct HomeTextFileImportDestinationView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \FlashcardDeck.updatedAt, order: .reverse) private var decks: [FlashcardDeck]
+
+    var body: some View {
+        List {
+            if decks.isEmpty {
+                ContentUnavailableView(
+                    "追加先のセットがありません",
+                    systemImage: "rectangle.stack.badge.plus",
+                    description: Text("先にフラッシュカードセットを作ると、CSV/TXTからカードを追加できます。")
+                )
+            } else {
+                Section("追加先のセット") {
+                    ForEach(decks) { deck in
+                        NavigationLink {
+                            TextFileImportView(
+                                deck: deck,
+                                totalCardCount: totalCardCount
+                            ) {
+                                dismiss()
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(deck.name)
+                                    .font(.headline)
+                                Text("\(deck.languageOneName) / \(deck.languageTwoName) ・ \(deck.cards.count)枚")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("ファイルから追加")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("閉じる") { dismiss() }
