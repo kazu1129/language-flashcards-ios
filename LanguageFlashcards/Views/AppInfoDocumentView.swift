@@ -22,7 +22,7 @@ enum AppInfoDocument {
             [
                 AppInfoSection(
                     heading: "基本の使い方",
-                    body: "ホームでフラッシュカードセットを選び、「学習を開始」からセッションを始めます。カードは左右スワイプで移動し、タップすると裏面が表示されます。裏面では発音、意味、例文を確認できます。"
+                    body: "メールアドレスとパスワードでログインしてから、ホームでフラッシュカードセットを選び、「学習を開始」からセッションを始めます。カードは左右スワイプで移動し、タップすると裏面が表示されます。裏面では発音、意味、例文を確認できます。"
                 ),
                 AppInfoSection(
                     heading: "カードの追加",
@@ -31,6 +31,10 @@ enum AppInfoDocument {
                 AppInfoSection(
                     heading: "編集と共有",
                     body: "カードをタップすると編集できます。カード一覧では検索、スワイプ削除、長押しメニューからの編集/削除が使えます。共有ボタンからTXT、CSV、PDFでセットを書き出せます。"
+                ),
+                AppInfoSection(
+                    heading: "プレミアム",
+                    body: "プレミアムはMonthlyとYearlyの2種類です。どちらもApp Store Connectで1週間無料トライアルを設定し、無料期間終了後にApple IDへ請求されます。購入状態は設定画面から復元できます。"
                 ),
                 AppInfoSection(
                     heading: "学習結果",
@@ -45,7 +49,7 @@ enum AppInfoDocument {
             [
                 AppInfoSection(
                     heading: "収集するデータ",
-                    body: "このアプリは、ユーザーが入力したフラッシュカード、学習履歴、設定、通知設定を端末内に保存します。アプリ独自のアカウント登録はありません。"
+                    body: "このアプリは、ユーザーが入力したフラッシュカード、学習履歴、設定、通知設定を端末内に保存します。ログインのためにメールアドレスとSupabaseユーザーIDを利用します。"
                 ),
                 AppInfoSection(
                     heading: "データの利用目的",
@@ -53,7 +57,11 @@ enum AppInfoDocument {
                 ),
                 AppInfoSection(
                     heading: "第三者サービス",
-                    body: "写真OCRは端末のVision機能で処理します。ユーザーが共有機能を使わない限り、カード内容は外部サービスへ送信されません。"
+                    body: "ログインにはSupabase Auth、サブスクリプションにはApple StoreKitを利用します。写真OCRは端末のVision機能で処理します。ユーザーが共有機能を使わない限り、カード内容は外部サービスへ送信されません。"
+                ),
+                AppInfoSection(
+                    heading: "サブスクリプションとの紐づけ",
+                    body: "購入時にはSupabaseユーザーIDをAppleの購入オプションへ渡し、アプリ内アカウントとサブスクリプション状態を対応づけます。支払い情報そのものはAppleが管理し、アプリはカード番号などを取得しません。"
                 ),
                 AppInfoSection(
                     heading: "共有と保存",
@@ -76,7 +84,7 @@ enum AppInfoDocument {
                 ),
                 AppInfoSection(
                     heading: "プレミアムと無料トライアル",
-                    body: "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。App Store公開時は、1週間無料プレミアムトライアル付きの自動更新サブスクリプションとして提供する想定です。無料期間終了後の価格、期間、更新条件は購入画面に表示される内容に従います。"
+                    body: "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。MonthlyとYearlyの2種類を提供し、どちらも最初の1週間は無料トライアルです。無料期間終了後の価格、期間、更新条件はApp Storeの購入画面に表示される内容に従います。"
                 ),
                 AppInfoSection(
                     heading: "解約",

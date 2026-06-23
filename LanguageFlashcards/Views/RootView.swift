@@ -9,11 +9,37 @@ private enum RootTab {
 
 struct RootView: View {
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
     @Query private var decks: [FlashcardDeck]
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
     @State private var selectedTab: RootTab = .home
 
     var body: some View {
+        Group {
+            if authManager.isAuthenticated {
+                appTabs
+            } else {
+                AuthView()
+            }
+        }
+        .task(id: authManager.isAuthenticated) {
+            guard authManager.isAuthenticated else { return }
+            await subscriptionStore.loadProducts()
+            await subscriptionStore.syncPurchasedSubscriptions(settings: settings)
+            await refreshNotifications()
+        }
+        .sheet(isPresented: Binding(
+            get: { authManager.isAuthenticated && !settings.hasSeenFSRSOnboarding },
+            set: { if !$0 { settings.hasSeenFSRSOnboarding = true } }
+        )) {
+            FSRSOnboardingView {
+                settings.hasSeenFSRSOnboarding = true
+            }
+        }
+    }
+
+    private var appTabs: some View {
         TabView(selection: $selectedTab) {
             HomeView {
                 selectedTab = .dashboard
@@ -58,14 +84,6 @@ struct RootView: View {
         }
         .onChange(of: settings.birthday) {
             Task { await refreshNotifications() }
-        }
-        .sheet(isPresented: Binding(
-            get: { !settings.hasSeenFSRSOnboarding },
-            set: { if !$0 { settings.hasSeenFSRSOnboarding = true } }
-        )) {
-            FSRSOnboardingView {
-                settings.hasSeenFSRSOnboarding = true
-            }
         }
     }
 

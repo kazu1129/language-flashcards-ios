@@ -98,6 +98,8 @@ final class AppSettings: ObservableObject {
         static let lastNotifiedGrowthStage = "lastNotifiedGrowthStage"
         static let ocrUsageMonth = "ocrUsageMonth"
         static let ocrUsageCount = "ocrUsageCount"
+        static let supabaseURL = "supabaseURL"
+        static let supabaseAnonKey = "supabaseAnonKey"
     }
 
     @Published var displaySide: CardSidePreference {
@@ -156,6 +158,14 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(birthday.timeIntervalSince1970, forKey: Keys.birthday) }
     }
 
+    @Published var supabaseURL: String {
+        didSet { defaults.set(supabaseURL, forKey: Keys.supabaseURL) }
+    }
+
+    @Published var supabaseAnonKey: String {
+        didSet { defaults.set(supabaseAnonKey, forKey: Keys.supabaseAnonKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -177,6 +187,8 @@ final class AppSettings: ObservableObject {
         self.hasBirthday = defaults.bool(forKey: Keys.hasBirthday)
         let savedBirthday = defaults.double(forKey: Keys.birthday)
         self.birthday = savedBirthday == 0 ? Date() : Date(timeIntervalSince1970: savedBirthday)
+        self.supabaseURL = defaults.string(forKey: Keys.supabaseURL) ?? ""
+        self.supabaseAnonKey = defaults.string(forKey: Keys.supabaseAnonKey) ?? ""
     }
 
     var isPremium: Bool {

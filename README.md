@@ -9,20 +9,33 @@ SwiftUI iPhone app for memorizing words and phrases across two languages.
 - Tap to flip cards, auto-play pronunciation with optional mute.
 - Scroll the flipped side to read long meanings and examples.
 - Add cards manually or extract text from handwritten notes/photos with Vision OCR, then edit before saving.
-- Complete missing meanings and examples with Gemini API.
 - Swipe left/right between cards during a study session.
 - Configurable session card count, defaulting to 10.
 - Three-level memory rating: perfect, unsure, unknown.
-- Simple spaced-repetition scheduling that increases uncertain cards and still reviews perfect cards later.
+- FSRS-lite spaced repetition that prioritizes cards by recall confidence, difficulty, and stability.
 - Dashboard with today's counts, calendar marks, daily study trend, and improvement trend.
-- Share a flashcard set as TXT or PDF.
+- Share a flashcard set as TXT, CSV, or PDF.
+- Supabase email/password login.
+- StoreKit premium subscription with Monthly and Yearly products.
 - Adjustable text size and system/light/dark appearance setting.
 
-## Gemini Setup
+## Supabase Setup
 
-Open Settings in the app and paste your Gemini API key. The key is saved locally in Keychain and is not committed to GitHub.
+Create a Supabase project and enable Email/Password authentication. In the app, enter:
 
-The default Gemini model is `gemini-3.5-flash`, matching the current Gemini API text-generation examples. You can change the model name in Settings without changing app code.
+- Project URL, for example `https://xxxx.supabase.co`
+- Anon public key
+
+Do not put a service role key into the iPhone app.
+
+## StoreKit Products
+
+Create two auto-renewable subscriptions in App Store Connect and set a 1-week free introductory trial on both:
+
+- `language_flashcards_premium_monthly`
+- `language_flashcards_premium_yearly`
+
+Purchases are linked to the logged-in Supabase user with StoreKit's app account token.
 
 ## Requirements
 

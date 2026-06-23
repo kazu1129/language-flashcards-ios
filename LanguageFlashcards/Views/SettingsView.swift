@@ -4,6 +4,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
     @Query(sort: \FlashcardDeck.updatedAt, order: .forward) private var decks: [FlashcardDeck]
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
     @State private var showingPremiumUpgrade = false
@@ -13,13 +15,16 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("サブスクリプション") {
-                    Picker("プラン", selection: $settings.subscriptionTier) {
-                        ForEach(SubscriptionTier.allCases) { tier in
-                            Text(tier.title).tag(tier)
-                        }
-                    }
+                Section("アカウント") {
+                    LabeledContent("メールアドレス", value: authManager.email.isEmpty ? "未ログイン" : authManager.email)
+                    LabeledContent("ユーザーID", value: authManager.accountUUID?.uuidString ?? "未確認")
 
+                    Text("サブスクリプション購入時、このSupabaseユーザーIDをAppleの購入情報へ紐づけます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("サブスクリプション") {
                     if settings.isPremium {
                         Label("プレミアム機能が有効です", systemImage: "crown.fill")
                             .foregroundStyle(.yellow)
@@ -31,7 +36,34 @@ struct SettingsView: View {
                         }
                     }
 
-                    Text("この切替は開発用です。本番公開時はAppleの1週間無料トライアル付きサブスクリプション購入状態と連携します。")
+                    Button {
+                        Task { await subscriptionStore.restorePurchases(settings: settings) }
+                    } label: {
+                        Label("購入状態を復元", systemImage: "arrow.clockwise")
+                    }
+
+                    if let message = subscriptionStore.message {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(message.contains("失敗") ? .red : .secondary)
+                    }
+
+                    Text("商品ID: \(SubscriptionStore.monthlyProductID) / \(SubscriptionStore.yearlyProductID)。1週間無料トライアルはApp Store Connectで両方の商品に設定します。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Supabase接続") {
+                    TextField("Project URL", text: $settings.supabaseURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    TextField("Anon public key", text: $settings.supabaseAnonKey, axis: .vertical)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .lineLimit(2...5)
+
+                    Text("サービスロールキーは入れないでください。アプリにはSupabaseのAnon public keyだけを設定します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -130,11 +162,11 @@ struct SettingsView: View {
             .navigationTitle("設定")
             .alert("ログアウトしますか？", isPresented: $showingLogoutConfirmation) {
                 Button("ログアウト", role: .destructive) {
-                    settings.resetForLogout()
+                    Task { await authManager.signOut(settings: settings) }
                 }
                 Button("キャンセル", role: .cancel) {}
             } message: {
-                Text("現在はアプリ内アカウント機能がないため、プレミアム状態を無料に戻し、初回説明を再表示します。カードと学習記録は削除されません。")
+                Text("Supabaseからログアウトし、端末内のログイン情報を削除します。カードと学習記録は削除されません。")
             }
             .alert("全ての記録を削除しますか？", isPresented: $showingDeleteAllConfirmation) {
                 Button("削除", role: .destructive) {
