@@ -15,18 +15,64 @@ struct CharacterGrowthStage: Identifiable, Equatable {
     var imageName: String
 
     var id: Int { level }
+
+    var localizedTitle: String {
+        switch level {
+        case 1:
+            String(localized: "character.stage.1.title")
+        case 2:
+            String(localized: "character.stage.2.title")
+        case 3:
+            String(localized: "character.stage.3.title")
+        case 4:
+            String(localized: "character.stage.4.title")
+        case 5:
+            String(localized: "character.stage.5.title")
+        case 6:
+            String(localized: "character.stage.6.title")
+        case 7:
+            String(localized: "character.stage.7.title")
+        case 8:
+            String(localized: "character.stage.8.title")
+        default:
+            title
+        }
+    }
+
+    var localizedSubtitle: String {
+        switch level {
+        case 1:
+            String(localized: "character.stage.1.subtitle")
+        case 2:
+            String(localized: "character.stage.2.subtitle")
+        case 3:
+            String(localized: "character.stage.3.subtitle")
+        case 4:
+            String(localized: "character.stage.4.subtitle")
+        case 5:
+            String(localized: "character.stage.5.subtitle")
+        case 6:
+            String(localized: "character.stage.6.subtitle")
+        case 7:
+            String(localized: "character.stage.7.subtitle")
+        case 8:
+            String(localized: "character.stage.8.subtitle")
+        default:
+            subtitle
+        }
+    }
 }
 
 enum LearningProgress {
     static let growthStages: [CharacterGrowthStage] = [
-        CharacterGrowthStage(level: 1, requiredDays: 0, title: "はじめの一歩", subtitle: "ここから育てていきましょう", imageName: "MascotStage1"),
-        CharacterGrowthStage(level: 2, requiredDays: 1, title: "学習パートナー", subtitle: "今日の一歩が形になりました", imageName: "MascotStage2"),
-        CharacterGrowthStage(level: 3, requiredDays: 3, title: "3日継続", subtitle: "少しずつ自信がついています", imageName: "MascotStage3"),
-        CharacterGrowthStage(level: 4, requiredDays: 7, title: "1週間継続", subtitle: "学ぶ流れができてきました", imageName: "MascotStage4"),
-        CharacterGrowthStage(level: 5, requiredDays: 14, title: "2週間継続", subtitle: "カードの積み重ねが見えています", imageName: "MascotStage5"),
-        CharacterGrowthStage(level: 6, requiredDays: 30, title: "1ヶ月継続", subtitle: "続ける力が育っています", imageName: "MascotStage6"),
-        CharacterGrowthStage(level: 7, requiredDays: 90, title: "90日継続", subtitle: "上級者のペースです", imageName: "MascotStage7"),
-        CharacterGrowthStage(level: 8, requiredDays: 365, title: "1年マスター", subtitle: "大きな継続の証です", imageName: "MascotStage8")
+        CharacterGrowthStage(level: 1, requiredDays: 0, title: "First step", subtitle: "Let's start growing from here", imageName: "MascotStage1"),
+        CharacterGrowthStage(level: 2, requiredDays: 1, title: "Learning partner", subtitle: "Today's step has taken shape", imageName: "MascotStage2"),
+        CharacterGrowthStage(level: 3, requiredDays: 3, title: "3-day streak", subtitle: "Your confidence is growing little by little", imageName: "MascotStage3"),
+        CharacterGrowthStage(level: 4, requiredDays: 7, title: "1-week streak", subtitle: "Your learning rhythm is taking shape", imageName: "MascotStage4"),
+        CharacterGrowthStage(level: 5, requiredDays: 14, title: "2-week streak", subtitle: "Your card progress is becoming visible", imageName: "MascotStage5"),
+        CharacterGrowthStage(level: 6, requiredDays: 30, title: "1-month streak", subtitle: "Your consistency is growing", imageName: "MascotStage6"),
+        CharacterGrowthStage(level: 7, requiredDays: 90, title: "90-day streak", subtitle: "This is an advanced pace", imageName: "MascotStage7"),
+        CharacterGrowthStage(level: 8, requiredDays: 365, title: "1-year master", subtitle: "A big sign of consistency", imageName: "MascotStage8")
     ]
 
     static func currentStage(for streakDays: Int) -> CharacterGrowthStage {
@@ -68,4 +114,3 @@ enum LearningProgress {
         return (deckDates + reviewDates).min()
     }
 }
-

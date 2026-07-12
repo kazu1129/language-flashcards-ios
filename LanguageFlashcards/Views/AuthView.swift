@@ -1,19 +1,17 @@
 import SwiftUI
 
 struct AuthView: View {
-    @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var authManager: AuthManager
     @State private var mode: AuthMode = .signIn
     @State private var email = ""
     @State private var password = ""
     @State private var passwordConfirmation = ""
-    @State private var showingSupabaseSettings = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("モード", selection: $mode) {
+                    Picker(String(localized: "auth.mode"), selection: $mode) {
                         ForEach(AuthMode.allCases) { authMode in
                             Text(authMode.title).tag(authMode)
                         }
@@ -21,47 +19,37 @@ struct AuthView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Section("アカウント") {
-                    TextField("メールアドレス", text: $email)
+                Section(String(localized: "auth.account.section")) {
+                    TextField(String(localized: "auth.email.placeholder"), text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    SecureField("パスワード", text: $password)
+                    SecureField(String(localized: "auth.password.placeholder"), text: $password)
                         .textContentType(mode == .signUp ? .newPassword : .password)
 
                     if mode == .signUp {
-                        SecureField("パスワード確認", text: $passwordConfirmation)
+                        SecureField(String(localized: "auth.passwordConfirmation.placeholder"), text: $passwordConfirmation)
                             .textContentType(.newPassword)
 
-                        Text("パスワードは8文字以上20文字以下。英大文字・英小文字・数字・特殊文字をすべて含めてください。")
+                        Text("auth.password.rules")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                }
-
-                Section("Supabase設定") {
-                    DisclosureGroup("接続情報", isExpanded: $showingSupabaseSettings) {
-                        TextField("Project URL 例: https://xxxx.supabase.co", text: $settings.supabaseURL)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-
-                        TextField("Anon public key", text: $settings.supabaseAnonKey, axis: .vertical)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .lineLimit(2...5)
-                    }
-
-                    Text("本番ではSupabaseプロジェクトのURLとAnon Keyを設定します。Anon Keyは公開クライアントキーですが、サービスロールキーは絶対に入れないでください。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
 
                 if let errorMessage = authManager.errorMessage {
                     Section {
                         Text(errorMessage)
                             .foregroundStyle(.red)
+                    }
+                }
+
+                if let statusMessage = authManager.statusMessage {
+                    Section {
+                        Text(statusMessage)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -79,11 +67,26 @@ struct AuthView: View {
                         }
                     }
                     .disabled(authManager.isWorking)
+
+                    if mode == .signIn {
+                        Button {
+                            Task { await requestPasswordReset() }
+                        } label: {
+                            if authManager.isPasswordResetWorking {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("auth.forgotPassword")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .disabled(authManager.isWorking || authManager.isPasswordResetWorking)
+                    }
                 } footer: {
-                    Text("ログイン後、App StoreのMonthly/YearlyサブスクリプションをSupabaseアカウントに紐づけます。")
+                    Text("auth.subscription.footer")
                 }
             }
-            .navigationTitle("ログイン")
+            .navigationTitle(String(localized: "auth.navigationTitle"))
         }
     }
 
@@ -92,19 +95,19 @@ struct AuthView: View {
         case .signIn:
             await authManager.signIn(
                 email: email,
-                password: password,
-                supabaseURL: settings.supabaseURL,
-                anonKey: settings.supabaseAnonKey
+                password: password
             )
         case .signUp:
             await authManager.signUp(
                 email: email,
                 password: password,
-                passwordConfirmation: passwordConfirmation,
-                supabaseURL: settings.supabaseURL,
-                anonKey: settings.supabaseAnonKey
+                passwordConfirmation: passwordConfirmation
             )
         }
+    }
+
+    private func requestPasswordReset() async {
+        await authManager.requestPasswordReset(email: email)
     }
 }
 
@@ -117,18 +120,18 @@ private enum AuthMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .signIn:
-            "ログイン"
+            String(localized: "auth.signIn")
         case .signUp:
-            "新規登録"
+            String(localized: "auth.signUp")
         }
     }
 
     var buttonTitle: String {
         switch self {
         case .signIn:
-            "ログイン"
+            String(localized: "auth.signIn")
         case .signUp:
-            "新規登録"
+            String(localized: "auth.signUp")
         }
     }
 }

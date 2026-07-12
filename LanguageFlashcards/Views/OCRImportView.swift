@@ -12,9 +12,9 @@ enum OCRImportStartSource: String, Identifiable {
     var title: String {
         switch self {
         case .camera:
-            "写真を撮る"
+            String(localized: "home.takePhoto")
         case .library:
-            "写真を選ぶ"
+            String(localized: "home.choosePhoto")
         }
     }
 }
@@ -59,47 +59,47 @@ struct OCRImportView: View {
                 Button {
                     openCamera()
                 } label: {
-                    Label("写真を撮る", systemImage: "camera")
+                    Label(String(localized: "home.takePhoto"), systemImage: "camera")
                 }
                 .disabled(!settings.canUseOCRImport() || !UIImagePickerController.isSourceTypeAvailable(.camera))
 
                 PhotosPicker(selection: $selectedItem, matching: .images) {
-                    Label("写真を選ぶ", systemImage: "photo.on.rectangle")
+                    Label(String(localized: "home.choosePhoto"), systemImage: "photo.on.rectangle")
                 }
                 .disabled(!settings.canUseOCRImport())
 
                 if isRecognizing {
                     HStack {
                         ProgressView()
-                        Text("文字を読み取り中")
+                        Text("ocr.recognizing")
                     }
                 }
 
                 if !UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Text("この端末ではカメラ撮影を使えません。写真ライブラリから選んでください。")
+                    Text("ocr.cameraUnavailable")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 if !settings.isPremium {
-                    Text("無料版の写真OCRは月\(PremiumLimits.freeOCRImportsPerMonth)回まで。残り\(settings.totalFreeOCRRemainingThisMonth)回です。")
+                    Text(freeOCRRemainingText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 if !settings.canUseOCRImport() {
-                    Button("1週間無料トライアルでOCRを続ける") {
+                    Button(String(localized: "ocr.continueTrial")) {
                         showingPremiumUpgrade = true
                     }
                 }
             }
 
-            Section("読み取り結果を編集") {
+            Section(String(localized: "import.editResults.section")) {
                 TextEditor(text: $recognizedText)
                     .frame(minHeight: 180)
                     .overlay(alignment: .topLeading) {
                         if recognizedText.isEmpty {
-                            Text("写真から抽出した文字がここに入ります。読み取りが違う場合は、この画面で修正できます。")
+                            Text("ocr.textEditor.placeholder")
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
@@ -107,9 +107,9 @@ struct OCRImportView: View {
                     }
             }
 
-            Section("保存されるカード") {
+            Section(String(localized: "import.savedCards.section")) {
                 if parsedRows.isEmpty {
-                    Text("英語のword/phraseを含む行だけ保存します。日本語など第1言語も同じ行にあれば、ペアとして登録します。")
+                    Text("ocr.savedCards.emptyDescription")
                         .foregroundStyle(.secondary)
                 } else {
                     if exceedsCardLimit {
@@ -122,11 +122,11 @@ struct OCRImportView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.languageTwo)
                                 .font(.headline)
-                            Text("\(deck.languageOneName): \(row.languageOne)")
+                            Text("\(deck.localizedLanguageOneName): \(row.languageOne)")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             if duplicateRowIDs.contains(row.id) {
-                                Text("重複の可能性があります")
+                                Text("import.duplicate.possible")
                                     .font(.caption)
                                     .foregroundStyle(.orange)
                             }
@@ -142,7 +142,7 @@ struct OCRImportView: View {
             }
 
             if !rejectedRows.isEmpty {
-                Section("保存しない読み取り結果") {
+                Section(String(localized: "import.rejected.section")) {
                     ForEach(rejectedRows) { row in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(row.text)
@@ -155,13 +155,13 @@ struct OCRImportView: View {
             }
 
         }
-        .navigationTitle("写真から追加")
+        .navigationTitle(String(localized: "ocr.navigationTitle"))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル") { dismiss() }
+                Button(String(localized: "cardEditor.cancel")) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button(isSaving ? "保存中" : "保存") {
+                Button(isSaving ? String(localized: "import.save.inProgress") : String(localized: "cardEditor.save")) {
                     Task { await attemptSaveRows() }
                 }
                 .disabled(parsedRows.isEmpty || isSaving)
@@ -179,7 +179,7 @@ struct OCRImportView: View {
             }
                 .ignoresSafeArea()
         }
-        .alert("処理できませんでした", isPresented: Binding(
+        .alert(String(localized: "ocr.processingError.title"), isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
@@ -187,28 +187,28 @@ struct OCRImportView: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .alert("カード数の上限を超えています", isPresented: Binding(
+        .alert(String(localized: "common.cardLimit.title"), isPresented: Binding(
             get: { cardLimitWarningMessage != nil },
             set: { if !$0 { cardLimitWarningMessage = nil } }
         )) {
-            Button("1週間無料トライアルを見る") {
+            Button(String(localized: "common.viewTrial")) {
                 cardLimitWarningMessage = nil
                 showingPremiumUpgrade = true
             }
-            Button("戻る", role: .cancel) {}
+            Button(String(localized: "import.alert.duplicate.back"), role: .cancel) {}
         } message: {
             Text(cardLimitWarningMessage ?? "")
         }
-        .alert("重複があります", isPresented: Binding(
+        .alert(String(localized: "cardEditor.alert.duplicate.title"), isPresented: Binding(
             get: { duplicateWarningMessage != nil },
             set: { if !$0 { duplicateWarningMessage = nil } }
         )) {
-            Button("重複を含めて保存") {
+            Button(String(localized: "cardEditor.alert.duplicate.allow")) {
                 let rows = parsedRows
                 duplicateWarningMessage = nil
                 Task { await saveRows(rows) }
             }
-            Button("戻る", role: .cancel) {}
+            Button(String(localized: "import.alert.duplicate.back"), role: .cancel) {}
         } message: {
             Text(duplicateWarningMessage ?? "")
         }
@@ -242,7 +242,19 @@ struct OCRImportView: View {
     }
 
     private var cardLimitSummary: String {
-        "無料版のカード上限を超えています。追加可能: 残り\(remainingFreeCardSlots)枚 / 保存対象: \(parsedRows.count)枚"
+        String.localizedStringWithFormat(
+            String(localized: "common.cardLimit.summary"),
+            Int64(remainingFreeCardSlots),
+            Int64(parsedRows.count)
+        )
+    }
+
+    private var freeOCRRemainingText: String {
+        String.localizedStringWithFormat(
+            String(localized: "ocr.freeRemaining"),
+            Int64(PremiumLimits.freeOCRImportsPerMonth),
+            Int64(settings.totalFreeOCRRemainingThisMonth)
+        )
     }
 
     private func handleStartSourceIfNeeded() {
@@ -261,7 +273,7 @@ struct OCRImportView: View {
             return
         }
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
-            errorMessage = "この端末ではカメラ撮影を使えません。写真ライブラリから選んでください。"
+            errorMessage = String(localized: "ocr.cameraUnavailable")
             return
         }
         showingCamera = true
@@ -304,7 +316,10 @@ struct OCRImportView: View {
     private func attemptSaveRows() async {
         let rows = parsedRows
         guard settings.canAddCards(totalCardCount: totalCardCount, adding: rows.count) else {
-            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、1週間無料プレミアムトライアルを開始するか、読み取り結果を編集して保存対象を減らしてください。"
+            cardLimitWarningMessage = String.localizedStringWithFormat(
+                String(localized: "common.cardLimit.message"),
+                cardLimitSummary
+            )
             return
         }
 

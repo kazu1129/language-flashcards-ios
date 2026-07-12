@@ -7,31 +7,31 @@ struct FSRSOnboardingView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("忘れそうなカードから出します")
+                    Text("fsrsOnboarding.hero.title")
                         .font(.largeTitle.bold())
-                    Text("このアプリはFSRS-liteで、完璧・自信なし・不明の評価から次に出すカードを調整します。")
+                    Text("fsrsOnboarding.hero.description")
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(spacing: 12) {
                     FSRSOnboardingRow(
                         icon: "checkmark.circle.fill",
-                        title: "完璧",
-                        detail: "記憶が強くなったと判断し、次の出題間隔を伸ばします。"
+                        title: String(localized: "reviewRating.title.perfect"),
+                        detail: String(localized: "fsrsOnboarding.perfect.detail")
                     )
                     FSRSOnboardingRow(
                         icon: "questionmark.circle.fill",
-                        title: "自信なし",
-                        detail: "覚えかけのカードとして、近いタイミングで再表示します。"
+                        title: String(localized: "reviewRating.title.unsure"),
+                        detail: String(localized: "fsrsOnboarding.unsure.detail")
                     )
                     FSRSOnboardingRow(
                         icon: "xmark.circle.fill",
-                        title: "不明",
-                        detail: "忘れているカードとして、かなり早く再表示します。"
+                        title: String(localized: "reviewRating.title.unknown"),
+                        detail: String(localized: "fsrsOnboarding.unknown.detail")
                     )
                 }
 
-                Text("カードごとに難しさと記憶の安定度を見て、忘れそうなものほど出やすくします。")
+                Text("fsrsOnboarding.footer")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
@@ -40,14 +40,14 @@ struct FSRSOnboardingView: View {
                 Button {
                     startAction()
                 } label: {
-                    Text("学習を始める")
+                    Text("fsrsOnboarding.start")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
             }
             .padding()
-            .navigationTitle("学習のしくみ")
+            .navigationTitle(String(localized: "fsrsOnboarding.navigationTitle"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }

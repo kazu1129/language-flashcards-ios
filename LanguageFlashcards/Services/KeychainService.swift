@@ -63,7 +63,7 @@ enum KeychainError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unexpectedStatus(let status):
-            "キーチェーン保存に失敗しました。コード: \(status)"
+            String.localizedStringWithFormat(String(localized: "keychain.error.unexpectedStatus"), status)
         }
     }
 }

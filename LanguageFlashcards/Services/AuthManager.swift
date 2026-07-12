@@ -4,7 +4,9 @@ import Foundation
 final class AuthManager: ObservableObject {
     @Published private(set) var session: AuthSession?
     @Published var isWorking = false
+    @Published var isPasswordResetWorking = false
     @Published var errorMessage: String?
+    @Published var statusMessage: String?
 
     private enum Keys {
         static let session = "supabase-auth-session"
@@ -32,24 +34,49 @@ final class AuthManager: ObservableObject {
     func signUp(
         email: String,
         password: String,
-        passwordConfirmation: String,
-        supabaseURL: String,
-        anonKey: String
+        passwordConfirmation: String
     ) async {
         let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard password == passwordConfirmation else {
             errorMessage = SupabaseAuthError.passwordMismatch.localizedDescription
+            statusMessage = nil
             return
         }
-        await authenticate(email: email, password: password, supabaseURL: supabaseURL, anonKey: anonKey, validatePasswordRules: true) {
-            try await service.signUp(email: normalizedEmail, password: password, supabaseURL: supabaseURL, anonKey: anonKey)
+        await authenticate(email: email, password: password, validatePasswordRules: true) {
+            try await service.signUp(email: normalizedEmail, password: password)
         }
     }
 
-    func signIn(email: String, password: String, supabaseURL: String, anonKey: String) async {
+    func signIn(email: String, password: String) async {
         let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        await authenticate(email: email, password: password, supabaseURL: supabaseURL, anonKey: anonKey, validatePasswordRules: false) {
-            try await service.signIn(email: normalizedEmail, password: password, supabaseURL: supabaseURL, anonKey: anonKey)
+        await authenticate(email: email, password: password, validatePasswordRules: false) {
+            try await service.signIn(email: normalizedEmail, password: password)
+        }
+    }
+
+    func requestPasswordReset(email: String) async {
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedEmail.contains("@"), normalizedEmail.contains(".") else {
+            errorMessage = SupabaseAuthError.invalidEmail.localizedDescription
+            statusMessage = nil
+            return
+        }
+        guard SupabaseConfiguration.isConfigured else {
+            errorMessage = SupabaseAuthError.missingConfiguration.localizedDescription
+            statusMessage = nil
+            return
+        }
+
+        isPasswordResetWorking = true
+        errorMessage = nil
+        statusMessage = nil
+        defer { isPasswordResetWorking = false }
+
+        do {
+            try await service.requestPasswordReset(email: normalizedEmail)
+            statusMessage = String(localized: "auth.status.passwordResetSent")
+        } catch {
+            errorMessage = Self.friendlyNetworkMessage(for: error)
         }
     }
 
@@ -59,9 +86,7 @@ final class AuthManager: ObservableObject {
 
         if let currentSession {
             await service.signOut(
-                accessToken: currentSession.accessToken,
-                supabaseURL: settings.supabaseURL,
-                anonKey: settings.supabaseAnonKey
+                accessToken: currentSession.accessToken
             )
         }
     }
@@ -69,25 +94,27 @@ final class AuthManager: ObservableObject {
     func clearSession(settings: AppSettings) {
         session = nil
         errorMessage = nil
+        statusMessage = nil
+        isPasswordResetWorking = false
         KeychainService.delete(account: Keys.session)
         settings.resetForLogout()
     }
 
     static func passwordValidationMessage(for password: String) -> String? {
         guard (8...20).contains(password.count) else {
-            return "パスワードは8文字以上20文字以下にしてください。"
+            return String(localized: "auth.error.passwordLength")
         }
         guard contains("[a-z]", in: password) else {
-            return "パスワードには英小文字を含めてください。"
+            return String(localized: "auth.error.passwordLowercase")
         }
         guard contains("[A-Z]", in: password) else {
-            return "パスワードには英大文字を含めてください。"
+            return String(localized: "auth.error.passwordUppercase")
         }
         guard contains("[0-9]", in: password) else {
-            return "パスワードには数字を含めてください。"
+            return String(localized: "auth.error.passwordNumber")
         }
         guard contains("[^A-Za-z0-9]", in: password) else {
-            return "パスワードには特殊文字を含めてください。"
+            return String(localized: "auth.error.passwordSymbol")
         }
         return nil
     }
@@ -95,28 +122,29 @@ final class AuthManager: ObservableObject {
     private func authenticate(
         email: String,
         password: String,
-        supabaseURL: String,
-        anonKey: String,
         validatePasswordRules: Bool,
         action: () async throws -> AuthSession
     ) async {
         let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedEmail.contains("@"), normalizedEmail.contains(".") else {
             errorMessage = SupabaseAuthError.invalidEmail.localizedDescription
+            statusMessage = nil
             return
         }
         if validatePasswordRules, let passwordMessage = Self.passwordValidationMessage(for: password) {
             errorMessage = passwordMessage
+            statusMessage = nil
             return
         }
-        guard !supabaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !anonKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard SupabaseConfiguration.isConfigured else {
             errorMessage = SupabaseAuthError.missingConfiguration.localizedDescription
+            statusMessage = nil
             return
         }
 
         isWorking = true
         errorMessage = nil
+        statusMessage = nil
         defer { isWorking = false }
 
         do {
@@ -124,7 +152,7 @@ final class AuthManager: ObservableObject {
             session = newSession
             try saveSession(newSession)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.friendlyNetworkMessage(for: error)
         }
     }
 
@@ -145,5 +173,21 @@ final class AuthManager: ObservableObject {
 
     private static func contains(_ pattern: String, in text: String) -> Bool {
         text.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private static func friendlyNetworkMessage(for error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut:
+                return String(localized: "auth.error.networkTimeout")
+            case .notConnectedToInternet, .networkConnectionLost:
+                return String(localized: "auth.error.noInternet")
+            case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed:
+                return String(localized: "auth.error.cannotConnectSupabase")
+            default:
+                return urlError.localizedDescription
+            }
+        }
+        return error.localizedDescription
     }
 }

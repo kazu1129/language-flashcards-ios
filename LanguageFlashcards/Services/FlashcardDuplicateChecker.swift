@@ -43,7 +43,10 @@ enum FlashcardDuplicateChecker {
     static func warningMessage(for rows: [TextImportParsedRow], in deck: FlashcardDeck) -> String? {
         let duplicateIDs = duplicateRowIDs(for: rows, in: deck)
         guard !duplicateIDs.isEmpty else { return nil }
-        return "\(duplicateIDs.count)件の単語/表現が、既存カードまたは今回の取り込み内で重複している可能性があります。保存してもよいか確認してください。"
+        return String.localizedStringWithFormat(
+            String(localized: "import.warning.duplicateRows"),
+            Int64(duplicateIDs.count)
+        )
     }
 
     private static func normalizedValues(_ values: [String]) -> Set<String> {

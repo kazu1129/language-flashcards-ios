@@ -8,11 +8,11 @@ enum AppInfoDocument {
     var title: String {
         switch self {
         case .manual:
-            "取説"
+            String(localized: "appInfo.manual.title")
         case .privacyPolicy:
-            "プライバシーポリシー"
+            String(localized: "appInfo.privacy.title")
         case .termsOfUse:
-            "利用規約"
+            String(localized: "appInfo.terms.title")
         }
     }
 
@@ -21,82 +21,110 @@ enum AppInfoDocument {
         case .manual:
             [
                 AppInfoSection(
-                    heading: "基本の使い方",
-                    body: "メールアドレスとパスワードでログインしてから、ホームでフラッシュカードセットを選び、「学習を開始」からセッションを始めます。カードは左右スワイプで移動し、タップすると裏面が表示されます。裏面では発音、意味、例文を確認できます。"
+                    heading: String(localized: "appInfo.manual.account.heading"),
+                    body: String(localized: "appInfo.manual.account.body")
                 ),
                 AppInfoSection(
-                    heading: "カードの追加",
-                    body: "セット画面右上の追加ボタンから、直接入力、写真撮影、写真選択、CSV/TXT読み込みを選べます。CSV/TXTでは英語と日本語の順序が逆でも、アプリが英語側と日本語側を自動判定します。"
+                    heading: String(localized: "appInfo.manual.basic.heading"),
+                    body: String(localized: "appInfo.manual.basic.body")
                 ),
                 AppInfoSection(
-                    heading: "編集と共有",
-                    body: "カードをタップすると編集できます。カード一覧では検索、スワイプ削除、長押しメニューからの編集/削除が使えます。共有ボタンからTXT、CSV、PDFでセットを書き出せます。"
+                    heading: String(localized: "appInfo.manual.addCards.heading"),
+                    body: String(localized: "appInfo.manual.addCards.body")
                 ),
                 AppInfoSection(
-                    heading: "プレミアム",
-                    body: "プレミアムはMonthlyとYearlyの2種類です。どちらもApp Store Connectで1週間無料トライアルを設定し、無料期間終了後にApple IDへ請求されます。購入状態は設定画面から復元できます。"
+                    heading: String(localized: "appInfo.manual.import.heading"),
+                    body: String(localized: "appInfo.manual.import.body")
                 ),
                 AppInfoSection(
-                    heading: "学習結果",
-                    body: "各カードの記憶度を「完璧」「まだ自信ない」「わからなかった」で記録します。成果タブでは今日の学習数、カレンダー、推移グラフを確認できます。"
+                    heading: String(localized: "appInfo.manual.editShare.heading"),
+                    body: String(localized: "appInfo.manual.editShare.body")
                 ),
                 AppInfoSection(
-                    heading: "FSRS-liteのメリット",
-                    body: "このアプリはFSRS-liteでカードごとの難しさと記憶の安定度を見ます。「完璧」は出題間隔を伸ばし、「自信なし」「わからなかった」は近いタイミングで再表示します。覚えたカードを必要以上に出さず、忘れそうなカードを優先できるのがメリットです。"
+                    heading: String(localized: "appInfo.manual.premium.heading"),
+                    body: String(localized: "appInfo.manual.premium.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.manual.progress.heading"),
+                    body: String(localized: "appInfo.manual.progress.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.manual.notifications.heading"),
+                    body: String(localized: "appInfo.manual.notifications.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.manual.fsrs.heading"),
+                    body: String(localized: "appInfo.manual.fsrs.body")
                 )
             ]
         case .privacyPolicy:
             [
                 AppInfoSection(
-                    heading: "収集するデータ",
-                    body: "このアプリは、ユーザーが入力したフラッシュカード、学習履歴、設定、通知設定を端末内に保存します。ログインのためにメールアドレスとSupabaseユーザーIDを利用します。"
+                    heading: String(localized: "appInfo.privacy.data.heading"),
+                    body: String(localized: "appInfo.privacy.data.body")
                 ),
                 AppInfoSection(
-                    heading: "データの利用目的",
-                    body: "保存データは、フラッシュカード学習、忘却曲線にもとづく出題、成果表示、通知、カードの共有ファイル作成のために利用します。"
+                    heading: String(localized: "appInfo.privacy.purpose.heading"),
+                    body: String(localized: "appInfo.privacy.purpose.body")
                 ),
                 AppInfoSection(
-                    heading: "第三者サービス",
-                    body: "ログインにはSupabase Auth、サブスクリプションにはApple StoreKitを利用します。写真OCRは端末のVision機能で処理します。ユーザーが共有機能を使わない限り、カード内容は外部サービスへ送信されません。"
+                    heading: String(localized: "appInfo.privacy.thirdParty.heading"),
+                    body: String(localized: "appInfo.privacy.thirdParty.body")
                 ),
                 AppInfoSection(
-                    heading: "サブスクリプションとの紐づけ",
-                    body: "購入時にはSupabaseユーザーIDをAppleの購入オプションへ渡し、アプリ内アカウントとサブスクリプション状態を対応づけます。支払い情報そのものはAppleが管理し、アプリはカード番号などを取得しません。"
+                    heading: String(localized: "appInfo.privacy.ocr.heading"),
+                    body: String(localized: "appInfo.privacy.ocr.body")
                 ),
                 AppInfoSection(
-                    heading: "共有と保存",
-                    body: "カードデータは原則として端末内に保存されます。ユーザーがTXT、CSV、PDF共有を実行した場合のみ、選択した共有先へデータが渡されます。"
+                    heading: String(localized: "appInfo.privacy.subscriptionLink.heading"),
+                    body: String(localized: "appInfo.privacy.subscriptionLink.body")
                 ),
                 AppInfoSection(
-                    heading: "保持と削除",
-                    body: "カード、学習履歴、設定はユーザーがアプリ内で削除するか、アプリを削除するまで端末に保持されます。カードやセットはアプリ内で削除できます。端末からアプリを削除すると、ローカルデータも削除されます。"
+                    heading: String(localized: "appInfo.privacy.shareSave.heading"),
+                    body: String(localized: "appInfo.privacy.shareSave.body")
                 ),
                 AppInfoSection(
-                    heading: "権限",
-                    body: "写真やカメラへのアクセスは、メモ写真から単語やフレーズを抽出する目的でのみ使用します。通知は学習リマインド、成果通知、記念日通知に使用します。"
+                    heading: String(localized: "appInfo.privacy.retention.heading"),
+                    body: String(localized: "appInfo.privacy.retention.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.privacy.permissions.heading"),
+                    body: String(localized: "appInfo.privacy.permissions.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.privacy.contact.heading"),
+                    body: String(localized: "appInfo.privacy.contact.body")
                 )
             ]
         case .termsOfUse:
             [
                 AppInfoSection(
-                    heading: "利用条件",
-                    body: "このアプリは語学学習を支援するためのフラッシュカードアプリです。ユーザーは、自分が利用権限を持つ単語リスト、メモ、例文を登録してください。"
+                    heading: String(localized: "appInfo.terms.conditions.heading"),
+                    body: String(localized: "appInfo.terms.conditions.body")
                 ),
                 AppInfoSection(
-                    heading: "プレミアムと無料トライアル",
-                    body: "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。MonthlyとYearlyの2種類を提供し、どちらも最初の1週間は無料トライアルです。無料期間終了後の価格、期間、更新条件はApp Storeの購入画面に表示される内容に従います。"
+                    heading: String(localized: "appInfo.terms.userContent.heading"),
+                    body: String(localized: "appInfo.terms.userContent.body")
                 ),
                 AppInfoSection(
-                    heading: "解約",
-                    body: "App Store経由のサブスクリプションは、ユーザーのApple IDのサブスクリプション管理画面からいつでも解約できます。無料トライアル期間中に解約した場合、次回以降の請求は発生しません。"
+                    heading: String(localized: "appInfo.terms.premiumTrial.heading"),
+                    body: String(localized: "appInfo.terms.premiumTrial.body")
                 ),
                 AppInfoSection(
-                    heading: "免責",
-                    body: "このアプリは可能な限り安定して動作するよう設計されていますが、学習成果、生成内容、共有ファイルの利用結果について特定の結果を保証しません。"
+                    heading: String(localized: "appInfo.terms.cancel.heading"),
+                    body: String(localized: "appInfo.terms.cancel.body")
                 ),
                 AppInfoSection(
-                    heading: "標準EULA",
-                    body: "App Storeから配布されるアプリとして、Appleの標準エンドユーザー使用許諾契約、またはApp Store Connectで設定するカスタム利用規約が適用されます。"
+                    heading: String(localized: "appInfo.terms.disclaimer.heading"),
+                    body: String(localized: "appInfo.terms.disclaimer.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.terms.eula.heading"),
+                    body: String(localized: "appInfo.terms.eula.body")
+                ),
+                AppInfoSection(
+                    heading: String(localized: "appInfo.terms.changes.heading"),
+                    body: String(localized: "appInfo.terms.changes.body")
                 )
             ]
         }

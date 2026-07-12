@@ -45,19 +45,19 @@ struct RootView: View {
                 selectedTab = .dashboard
             }
                 .tabItem {
-                    Label("ホーム", systemImage: "rectangle.stack")
+                    Label(String(localized: "root.tab.home"), systemImage: "rectangle.stack")
                 }
                 .tag(RootTab.home)
 
             DashboardView()
                 .tabItem {
-                    Label("成果", systemImage: "chart.line.uptrend.xyaxis")
+                    Label(String(localized: "root.tab.dashboard"), systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(RootTab.dashboard)
 
             SettingsView()
                 .tabItem {
-                    Label("設定", systemImage: "gearshape")
+                    Label(String(localized: "root.tab.settings"), systemImage: "gearshape")
                 }
                 .tag(RootTab.settings)
         }

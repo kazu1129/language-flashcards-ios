@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -11,170 +12,258 @@ struct SettingsView: View {
     @State private var showingPremiumUpgrade = false
     @State private var showingLogoutConfirmation = false
     @State private var showingDeleteAllConfirmation = false
+    @State private var sessionCardCountInput = ""
+    @FocusState private var isSessionCountFocused: Bool
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("アカウント") {
-                    LabeledContent("メールアドレス", value: authManager.email.isEmpty ? "未ログイン" : authManager.email)
-                    LabeledContent("ユーザーID", value: authManager.accountUUID?.uuidString ?? "未確認")
+                Section(String(localized: "settings.account.section")) {
+                    LabeledContent(
+                        String(localized: "settings.email"),
+                        value: authManager.email.isEmpty ? String(localized: "settings.loggedOut") : authManager.email
+                    )
+                    LabeledContent(
+                        String(localized: "settings.userID"),
+                        value: authManager.accountUUID?.uuidString ?? String(localized: "settings.unverified")
+                    )
 
-                    Text("サブスクリプション購入時、このSupabaseユーザーIDをAppleの購入情報へ紐づけます。")
+                    Text("settings.account.subscriptionLinkDescription")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Section("サブスクリプション") {
-                    if settings.isPremium {
-                        Label("プレミアム機能が有効です", systemImage: "crown.fill")
+                Section(String(localized: "settings.subscription.section")) {
+                    if hasActivePremiumSubscription {
+                        Label(String(localized: "settings.premiumActive"), systemImage: "crown.fill")
                             .foregroundStyle(.yellow)
                     } else {
                         Button {
                             showingPremiumUpgrade = true
                         } label: {
-                            Label("1週間無料トライアルを見る", systemImage: "crown")
+                            Label(String(localized: "common.viewTrial"), systemImage: "crown")
                         }
                     }
+
+                    if subscriptionStore.hasActiveMonthly && !subscriptionStore.hasActiveYearly {
+                        Button {
+                            Task {
+                                await subscriptionStore.changeMonthlyToYearly(
+                                    accountToken: authManager.accountUUID,
+                                    settings: settings
+                                )
+                            }
+                        } label: {
+                            Label(String(localized: "settings.subscription.changeToYearly"), systemImage: "arrow.up.circle")
+                        }
+                        .disabled(subscriptionStore.isLoading || subscriptionStore.isPurchasing)
+                    }
+
+                    Button {
+                        Task {
+                            await subscriptionStore.manageSubscriptions(in: activeWindowScene, settings: settings)
+                        }
+                    } label: {
+                        Label(String(localized: "settings.subscription.manage"), systemImage: "person.crop.circle.badge.checkmark")
+                    }
+                    .disabled(subscriptionStore.isManagingSubscriptions)
+
+                    Text("settings.subscription.manageHint")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
                     Button {
                         Task { await subscriptionStore.restorePurchases(settings: settings) }
                     } label: {
-                        Label("購入状態を復元", systemImage: "arrow.clockwise")
+                        Label(String(localized: "premium.restorePurchases"), systemImage: "arrow.clockwise")
                     }
 
                     if let message = subscriptionStore.message {
                         Text(message)
                             .font(.caption)
-                            .foregroundStyle(message.contains("失敗") ? .red : .secondary)
+                            .foregroundStyle(subscriptionStore.isMessageError ? .red : .secondary)
                     }
 
-                    Text("商品ID: \(SubscriptionStore.monthlyProductID) / \(SubscriptionStore.yearlyProductID)。1週間無料トライアルはApp Store Connectで両方の商品に設定します。")
+                    Text(productIDsNote)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Section("Supabase接続") {
-                    TextField("Project URL", text: $settings.supabaseURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    TextField("Anon public key", text: $settings.supabaseAnonKey, axis: .vertical)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .lineLimit(2...5)
-
-                    Text("サービスロールキーは入れないでください。アプリにはSupabaseのAnon public keyだけを設定します。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("フラッシュカード") {
-                    Picker("最初に見せる面", selection: $settings.displaySide) {
+                Section(String(localized: "settings.flashcards.section")) {
+                    Picker(String(localized: "settings.firstSide"), selection: $settings.displaySide) {
                         ForEach(CardSidePreference.allCases) { side in
                             Text(side.title).tag(side)
                         }
                     }
 
-                    Toggle("発音を無音化", isOn: $settings.muteAudio)
+                    Toggle(String(localized: "settings.muteAudio"), isOn: $settings.muteAudio)
 
-                    Stepper(value: $settings.sessionCardCount, in: 1...100) {
-                        Text("1セッション \(settings.sessionCardCount)枚")
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("settings.sessionCount.title")
+                            Text("settings.sessionCount.rangeHint")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        TextField(
+                            String(settings.sessionCardCount),
+                            text: $sessionCardCountInput
+                        )
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .focused($isSessionCountFocused)
+                        .frame(width: 58)
+                        .padding(.vertical, 6)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .accessibilityLabel(Text("settings.sessionCount.title"))
+                        .onSubmit {
+                            confirmSessionCardCountInput()
+                        }
+
+                        Button(String(localized: "common.confirm")) {
+                            confirmSessionCardCountInput()
+                            isSessionCountFocused = false
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Stepper(String(localized: "settings.sessionCount.title"), value: sessionCardCountBinding, in: 1...100)
+                            .labelsHidden()
                     }
                 }
 
-                Section("キャラクター") {
-                    Toggle("ホームに表示", isOn: $settings.showCharacterOnHome)
+                Section(String(localized: "settings.character.section")) {
+                    Toggle(String(localized: "settings.showCharacterOnHome"), isOn: $settings.showCharacterOnHome)
 
                     HStack(spacing: 12) {
                         CharacterAvatarView(stage: currentStage, size: 72)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(currentStage.title)
+                            Text(currentStage.localizedTitle)
                                 .font(.headline)
-                            Text("継続 \(streakDays)日")
+                            Text(String.localizedStringWithFormat(
+                                String(localized: "character.streak"),
+                                Int64(streakDays)
+                            ))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
 
-                    Toggle("成長したら通知", isOn: $settings.growthNotificationsEnabled)
+                    Toggle(String(localized: "settings.growthNotifications"), isOn: $settings.growthNotificationsEnabled)
                 }
 
-                Section("通知") {
-                    Toggle("20時の学習リマインド", isOn: $settings.studyReminderEnabled)
-                    Toggle("22時の今日の成果", isOn: $settings.dailySummaryEnabled)
-                    Toggle("記念日のメッセージ", isOn: $settings.anniversaryNotificationsEnabled)
+                Section(String(localized: "settings.notifications.section")) {
+                    Toggle(String(localized: "settings.studyReminder"), isOn: $settings.studyReminderEnabled)
+                    Toggle(String(localized: "settings.dailySummary"), isOn: $settings.dailySummaryEnabled)
+                    Toggle(String(localized: "settings.anniversaryNotifications"), isOn: $settings.anniversaryNotificationsEnabled)
 
-                    Toggle("誕生日を登録", isOn: $settings.hasBirthday)
+                    Toggle(String(localized: "settings.birthdayToggle"), isOn: $settings.hasBirthday)
                     if settings.hasBirthday {
-                        DatePicker("誕生日", selection: $settings.birthday, displayedComponents: [.date])
+                        DatePicker(String(localized: "settings.birthday"), selection: $settings.birthday, displayedComponents: [.date])
                     }
                 }
 
-                Section("表示") {
-                    Picker("カラー", selection: $settings.appearance) {
+                Section(String(localized: "settings.display.section")) {
+                    Picker(String(localized: "settings.color"), selection: $settings.appearance) {
                         ForEach(AppearancePreference.allCases) { appearance in
                             Text(appearance.title).tag(appearance)
                         }
                     }
 
                     VStack(alignment: .leading) {
-                        Text("文字サイズ")
+                        Text("settings.fontSize")
                         Slider(value: $settings.fontScale, in: 0.8...1.6, step: 0.05)
-                        Text("プレビュー")
+                        Text("settings.preview")
                             .font(.system(size: 18 * settings.fontScale, weight: .semibold))
                     }
                 }
 
-                Section("サポートと規約") {
+                Section(String(localized: "settings.support.section")) {
                     NavigationLink {
                         AppInfoDocumentView(document: .manual)
                     } label: {
-                        Label("取説", systemImage: "book")
+                        Label(String(localized: "settings.manual"), systemImage: "book")
                     }
 
                     NavigationLink {
                         AppInfoDocumentView(document: .privacyPolicy)
                     } label: {
-                        Label("プライバシーポリシー", systemImage: "hand.raised")
+                        Label(String(localized: "settings.privacyPolicy"), systemImage: "hand.raised")
                     }
 
                     NavigationLink {
                         AppInfoDocumentView(document: .termsOfUse)
                     } label: {
-                        Label("利用規約", systemImage: "doc.text")
+                        Label(String(localized: "settings.termsOfUse"), systemImage: "doc.text")
                     }
                 }
 
-                Section("アカウントとデータ") {
+                Section(String(localized: "settings.accountData.section")) {
                     Button {
                         showingLogoutConfirmation = true
                     } label: {
-                        Label("ログアウト", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label(String(localized: "settings.logout"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
 
                     Button(role: .destructive) {
                         showingDeleteAllConfirmation = true
                     } label: {
-                        Label("全ての記録を削除", systemImage: "trash")
+                        Label(String(localized: "settings.deleteAll"), systemImage: "trash")
                     }
                 }
             }
-            .navigationTitle("設定")
-            .alert("ログアウトしますか？", isPresented: $showingLogoutConfirmation) {
-                Button("ログアウト", role: .destructive) {
+            .navigationTitle(String(localized: "settings.navigationTitle"))
+            .toolbar {
+                if isSessionCountFocused {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button(String(localized: "common.confirm")) {
+                            confirmSessionCardCountInput()
+                            isSessionCountFocused = false
+                        }
+                    }
+                }
+            }
+            .onAppear {
+                syncSessionCardCountInput()
+            }
+            .task {
+                await subscriptionStore.loadProducts()
+                await subscriptionStore.syncPurchasedSubscriptions(settings: settings)
+            }
+            .onChange(of: sessionCardCountInput) {
+                let sanitizedInput = sanitizedSessionCountInput(sessionCardCountInput)
+                if sessionCardCountInput != sanitizedInput {
+                    sessionCardCountInput = sanitizedInput
+                }
+            }
+            .onChange(of: isSessionCountFocused) {
+                if isSessionCountFocused {
+                    syncSessionCardCountInput()
+                } else {
+                    confirmSessionCardCountInput()
+                }
+            }
+            .onChange(of: settings.sessionCardCount) {
+                syncSessionCardCountInput()
+            }
+            .alert(String(localized: "settings.logout.alert.title"), isPresented: $showingLogoutConfirmation) {
+                Button(String(localized: "settings.logout"), role: .destructive) {
                     Task { await authManager.signOut(settings: settings) }
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button(String(localized: "cardEditor.cancel"), role: .cancel) {}
             } message: {
-                Text("Supabaseからログアウトし、端末内のログイン情報を削除します。カードと学習記録は削除されません。")
+                Text("settings.logout.alert.message")
             }
-            .alert("全ての記録を削除しますか？", isPresented: $showingDeleteAllConfirmation) {
-                Button("削除", role: .destructive) {
+            .alert(String(localized: "settings.deleteAll.alert.title"), isPresented: $showingDeleteAllConfirmation) {
+                Button(String(localized: "settings.deleteAll.confirm"), role: .destructive) {
                     deleteAllRecords()
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button(String(localized: "cardEditor.cancel"), role: .cancel) {}
             } message: {
-                Text("全てのフラッシュカードセット、カード、学習履歴を削除します。この操作は元に戻せません。")
+                Text("settings.deleteAll.alert.message")
             }
             .sheet(isPresented: $showingPremiumUpgrade) {
                 PremiumUpgradeView()
@@ -190,6 +279,34 @@ struct SettingsView: View {
         LearningProgress.currentStage(for: streakDays)
     }
 
+    private var hasActivePremiumSubscription: Bool {
+        settings.isPremium || subscriptionStore.hasActivePremium
+    }
+
+    private var sessionCardCountBinding: Binding<Int> {
+        Binding(
+            get: { settings.sessionCardCount },
+            set: {
+                settings.sessionCardCount = AppSettings.clampedSessionCardCount($0)
+                syncSessionCardCountInput()
+            }
+        )
+    }
+
+    private var productIDsNote: String {
+        String.localizedStringWithFormat(
+            String(localized: "settings.productIDs.note"),
+            SubscriptionStore.monthlyProductID,
+            SubscriptionStore.yearlyProductID
+        )
+    }
+
+    private var activeWindowScene: UIWindowScene? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+    }
+
     private func deleteAllRecords() {
         for deck in decks {
             modelContext.delete(deck)
@@ -198,5 +315,24 @@ struct SettingsView: View {
             modelContext.delete(review)
         }
         try? modelContext.save()
+    }
+
+    private func confirmSessionCardCountInput() {
+        guard let inputValue = Int(sessionCardCountInput) else {
+            syncSessionCardCountInput()
+            return
+        }
+
+        settings.sessionCardCount = AppSettings.clampedSessionCardCount(inputValue)
+        syncSessionCardCountInput()
+    }
+
+    private func syncSessionCardCountInput() {
+        sessionCardCountInput = String(settings.sessionCardCount)
+    }
+
+    private func sanitizedSessionCountInput(_ input: String) -> String {
+        let digits = input.compactMap(\.wholeNumberValue).map(String.init).joined()
+        return String(digits.prefix(3))
     }
 }

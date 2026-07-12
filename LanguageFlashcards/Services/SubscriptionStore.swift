@@ -1,5 +1,6 @@
 import Foundation
 import StoreKit
+import UIKit
 
 @MainActor
 final class SubscriptionStore: ObservableObject {
@@ -11,9 +12,13 @@ final class SubscriptionStore: ObservableObject {
     @Published var purchasedProductIDs: Set<String> = []
     @Published var isLoading = false
     @Published var isPurchasing = false
+    @Published var isManagingSubscriptions = false
     @Published var message: String?
+    @Published var isMessageError = false
 
     private var updatesTask: Task<Void, Never>?
+    private weak var connectedSettings: AppSettings?
+    private var entitlementRevision = 0
 
     init() {
         updatesTask = Task { [weak self] in
@@ -29,6 +34,14 @@ final class SubscriptionStore: ObservableObject {
         !purchasedProductIDs.isDisjoint(with: Self.productIDs)
     }
 
+    var hasActiveMonthly: Bool {
+        purchasedProductIDs.contains(Self.monthlyProductID)
+    }
+
+    var hasActiveYearly: Bool {
+        purchasedProductIDs.contains(Self.yearlyProductID)
+    }
+
     func loadProducts() async {
         isLoading = true
         defer { isLoading = false }
@@ -37,16 +50,20 @@ final class SubscriptionStore: ObservableObject {
             let loadedProducts = try await Product.products(for: Self.productIDs)
             products = loadedProducts.sorted { productOrder($0.id) < productOrder($1.id) }
             if products.isEmpty {
-                message = "StoreKit商品がまだ見つかりません。App Store ConnectでMonthly/Yearly商品を作成してください。"
+                setMessage(String(localized: "subscription.message.productsMissing"))
             }
         } catch {
-            message = "StoreKit商品の読み込みに失敗しました: \(error.localizedDescription)"
+            setMessage(
+                String.localizedStringWithFormat(String(localized: "subscription.message.loadFailed"), error.localizedDescription),
+                isError: true
+            )
         }
     }
 
     func purchase(_ product: Product, accountToken: UUID?, settings: AppSettings) async {
+        connectedSettings = settings
         isPurchasing = true
-        message = nil
+        clearMessage()
         defer { isPurchasing = false }
 
         do {
@@ -60,51 +77,131 @@ final class SubscriptionStore: ObservableObject {
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
-                purchasedProductIDs.insert(transaction.productID)
-                settings.subscriptionTier = .premium
+                guard Self.productIDs.contains(transaction.productID),
+                      isActive(transaction) else {
+                    throw SubscriptionStoreError.failedVerification
+                }
+
+                applyPurchasedProductIDs([transaction.productID], settings: settings)
                 await transaction.finish()
-                await syncPurchasedSubscriptions(settings: settings)
-                message = "プレミアムが有効になりました。"
+                setMessage(String(localized: "subscription.message.premiumActive"))
             case .pending:
-                message = "購入は承認待ちです。完了後に自動で反映されます。"
+                setMessage(String(localized: "subscription.message.pending"))
             case .userCancelled:
-                message = "購入はキャンセルされました。"
+                setMessage(String(localized: "subscription.message.cancelled"))
             @unknown default:
-                message = "購入結果を確認できませんでした。時間をおいて再度お試しください。"
+                setMessage(String(localized: "subscription.message.unknownResult"), isError: true)
             }
         } catch {
-            message = "購入に失敗しました: \(error.localizedDescription)"
+            setMessage(
+                String.localizedStringWithFormat(String(localized: "subscription.message.purchaseFailed"), error.localizedDescription),
+                isError: true
+            )
         }
     }
 
     func restorePurchases(settings: AppSettings) async {
-        message = nil
+        connectedSettings = settings
+        clearMessage()
         do {
             try await AppStore.sync()
             await syncPurchasedSubscriptions(settings: settings)
-            message = hasActivePremium ? "購入状態を復元しました。" : "有効なプレミアム購入は見つかりませんでした。"
+            setMessage(hasActivePremium ? String(localized: "subscription.message.restoreSuccess") : String(localized: "subscription.message.restoreNoActive"))
         } catch {
-            message = "購入状態の復元に失敗しました: \(error.localizedDescription)"
+            setMessage(
+                String.localizedStringWithFormat(String(localized: "subscription.message.restoreFailed"), error.localizedDescription),
+                isError: true
+            )
+        }
+    }
+
+    func changeMonthlyToYearly(accountToken: UUID?, settings: AppSettings) async {
+        clearMessage()
+
+        if products.isEmpty {
+            await loadProducts()
+        }
+
+        guard hasActiveMonthly else {
+            setMessage(String(localized: "subscription.message.monthlyRequired"), isError: true)
+            return
+        }
+
+        guard !hasActiveYearly else {
+            setMessage(String(localized: "subscription.message.yearlyAlreadyActive"))
+            return
+        }
+
+        guard let yearlyProduct = products.first(where: { $0.id == Self.yearlyProductID }) else {
+            setMessage(String(localized: "subscription.message.productsMissing"), isError: true)
+            return
+        }
+
+        await purchase(yearlyProduct, accountToken: accountToken, settings: settings)
+    }
+
+    func manageSubscriptions(in scene: UIWindowScene?, settings: AppSettings) async {
+        clearMessage()
+
+        guard let scene else {
+            setMessage(String(localized: "subscription.message.manageUnavailable"), isError: true)
+            return
+        }
+
+        isManagingSubscriptions = true
+        defer { isManagingSubscriptions = false }
+
+        do {
+            try await AppStore.showManageSubscriptions(in: scene)
+            await syncPurchasedSubscriptions(settings: settings)
+        } catch {
+            setMessage(
+                String.localizedStringWithFormat(String(localized: "subscription.message.manageFailed"), error.localizedDescription),
+                isError: true
+            )
         }
     }
 
     func syncPurchasedSubscriptions(settings: AppSettings) async {
+        connectedSettings = settings
+        let startingRevision = entitlementRevision
         var activeProductIDs: Set<String> = []
+        var failedToVerifyKnownProduct = false
+
         for await entitlement in Transaction.currentEntitlements {
-            guard let transaction = try? checkVerified(entitlement) else { continue }
-            guard Self.productIDs.contains(transaction.productID), transaction.revocationDate == nil else { continue }
-            activeProductIDs.insert(transaction.productID)
+            switch entitlement {
+            case .verified(let transaction):
+                guard Self.productIDs.contains(transaction.productID),
+                      isActive(transaction) else { continue }
+                activeProductIDs.insert(transaction.productID)
+            case .unverified(let transaction, _):
+                if Self.productIDs.contains(transaction.productID) {
+                    failedToVerifyKnownProduct = true
+                }
+            }
         }
-        purchasedProductIDs = activeProductIDs
-        settings.subscriptionTier = activeProductIDs.isEmpty ? .free : .premium
+
+        // A purchase or renewal may complete while this asynchronous scan is running.
+        // In that case, don't let the older scan overwrite the newer entitlement.
+        guard startingRevision == entitlementRevision else { return }
+
+        if failedToVerifyKnownProduct && activeProductIDs.isEmpty {
+            setMessage(
+                SubscriptionStoreError.failedVerification.localizedDescription,
+                isError: true
+            )
+            return
+        }
+
+        applyPurchasedProductIDs(activeProductIDs, settings: settings)
     }
 
     func displayName(for product: Product) -> String {
         switch product.id {
         case Self.monthlyProductID:
-            "Monthly"
+            String(localized: "subscription.product.monthlyName")
         case Self.yearlyProductID:
-            "Yearly"
+            String(localized: "subscription.product.yearlyName")
         default:
             product.displayName
         }
@@ -113,20 +210,53 @@ final class SubscriptionStore: ObservableObject {
     func periodText(for product: Product) -> String {
         switch product.id {
         case Self.monthlyProductID:
-            "月額"
+            String(localized: "subscription.period.monthly")
         case Self.yearlyProductID:
-            "年額"
+            String(localized: "subscription.period.yearly")
         default:
-            "サブスクリプション"
+            String(localized: "subscription.period.subscription")
         }
+    }
+
+    private func setMessage(_ text: String, isError: Bool = false) {
+        message = text
+        isMessageError = isError
+    }
+
+    private func clearMessage() {
+        message = nil
+        isMessageError = false
     }
 
     private func observeTransactionUpdates() async {
         for await update in Transaction.updates {
             guard let transaction = try? checkVerified(update) else { continue }
-            purchasedProductIDs.insert(transaction.productID)
+            guard Self.productIDs.contains(transaction.productID) else { continue }
+
+            var updatedProductIDs = purchasedProductIDs
+            if isActive(transaction) {
+                updatedProductIDs.insert(transaction.productID)
+            } else {
+                updatedProductIDs.remove(transaction.productID)
+            }
+            applyPurchasedProductIDs(updatedProductIDs, settings: connectedSettings)
             await transaction.finish()
         }
+    }
+
+    private func applyPurchasedProductIDs(
+        _ productIDs: Set<String>,
+        settings: AppSettings?
+    ) {
+        entitlementRevision &+= 1
+        purchasedProductIDs = productIDs
+        (settings ?? connectedSettings)?.subscriptionTier = productIDs.isEmpty ? .free : .premium
+    }
+
+    private func isActive(_ transaction: Transaction, now: Date = .now) -> Bool {
+        guard transaction.revocationDate == nil else { return false }
+        guard let expirationDate = transaction.expirationDate else { return true }
+        return expirationDate > now
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
@@ -156,7 +286,7 @@ enum SubscriptionStoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .failedVerification:
-            "購入情報の検証に失敗しました。"
+            String(localized: "subscriptionStore.failedVerification")
         }
     }
 }

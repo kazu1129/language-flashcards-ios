@@ -27,29 +27,29 @@ struct CardEditorView: View {
 
     var body: some View {
         Form {
-            Section("単語 / フレーズ") {
-                TextField(deck.languageOneName, text: $languageOneText, axis: .vertical)
+            Section(String(localized: "cardEditor.word.section")) {
+                TextField(deck.localizedLanguageOneName, text: $languageOneText, axis: .vertical)
                     .lineLimit(1...4)
-                TextField(deck.languageTwoName, text: $languageTwoText, axis: .vertical)
+                TextField(deck.localizedLanguageTwoName, text: $languageTwoText, axis: .vertical)
                     .lineLimit(1...4)
 
                 if hasDuplicate {
-                    Label("同じ単語/表現がすでに登録されている可能性があります。", systemImage: "exclamationmark.triangle")
+                    Label(String(localized: "cardEditor.duplicate.inline"), systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
             }
 
-            Section("意味・同義語・例文") {
+            Section(String(localized: "cardEditor.details.section")) {
                 ForEach($meanings) { $meaning in
                     VStack(alignment: .leading, spacing: 8) {
-                        TextField("意味", text: $meaning.meaning, axis: .vertical)
+                        TextField(String(localized: "cardEditor.meaning.placeholder"), text: $meaning.meaning, axis: .vertical)
                             .lineLimit(1...3)
-                        TextField("同義語", text: $meaning.synonyms, axis: .vertical)
+                        TextField(String(localized: "cardEditor.synonyms.placeholder"), text: $meaning.synonyms, axis: .vertical)
                             .lineLimit(1...3)
-                        TextField("例文", text: $meaning.example, axis: .vertical)
+                        TextField(String(localized: "cardEditor.example.placeholder"), text: $meaning.example, axis: .vertical)
                             .lineLimit(1...4)
-                        TextField("例文の訳", text: $meaning.exampleTranslation, axis: .vertical)
+                        TextField(String(localized: "cardEditor.exampleTranslation.placeholder"), text: $meaning.exampleTranslation, axis: .vertical)
                             .lineLimit(1...4)
                     }
                     .padding(.vertical, 4)
@@ -64,29 +64,32 @@ struct CardEditorView: View {
                 Button {
                     meanings.append(MeaningEntry())
                 } label: {
-                    Label("意味を追加", systemImage: "plus.circle")
+                    Label(String(localized: "cardEditor.add"), systemImage: "plus.circle")
                 }
             }
         }
-        .navigationTitle(card == nil ? "カードを追加" : "カードを編集")
+        .navigationTitle(card == nil
+            ? String(localized: "cardEditor.title.add")
+            : String(localized: "cardEditor.title.edit")
+        )
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル") { dismiss() }
+                Button(String(localized: "cardEditor.cancel")) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("保存") { save() }
+                Button(String(localized: "cardEditor.save")) { save() }
                     .disabled(languageOneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .alert("重複があります", isPresented: Binding(
+        .alert(String(localized: "cardEditor.alert.duplicate.title"), isPresented: Binding(
             get: { duplicateWarningMessage != nil },
             set: { if !$0 { duplicateWarningMessage = nil } }
         )) {
-            Button("重複を含めて保存") {
+            Button(String(localized: "cardEditor.alert.duplicate.allow")) {
                 duplicateWarningMessage = nil
                 save(allowDuplicate: true)
             }
-            Button("戻る", role: .cancel) {}
+            Button(String(localized: "cardEditor.alert.duplicate.back"), role: .cancel) {}
         } message: {
             Text(duplicateWarningMessage ?? "")
         }
@@ -121,7 +124,7 @@ struct CardEditorView: View {
                languageTwo: cleanedLanguageTwo,
                excluding: card?.id
            ) {
-            duplicateWarningMessage = "同じ単語/表現がすでに登録されている可能性があります。保存してもよいか確認してください。"
+            duplicateWarningMessage = String(localized: "cardEditor.alert.duplicate.message")
             return
         }
 

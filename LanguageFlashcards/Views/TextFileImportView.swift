@@ -36,7 +36,7 @@ struct TextFileImportView: View {
                 Button {
                     showingFileImporter = true
                 } label: {
-                    Label("CSV/TXTファイルを選ぶ", systemImage: "doc.badge.plus")
+                    Label(String(localized: "textFile.chooseFile"), systemImage: "doc.badge.plus")
                 }
 
                 if let selectedFileName {
@@ -46,12 +46,12 @@ struct TextFileImportView: View {
                 }
             }
 
-            Section("読み取り結果を編集") {
+            Section(String(localized: "import.editResults.section")) {
                 TextEditor(text: $importedText)
                     .frame(minHeight: 180)
                     .overlay(alignment: .topLeading) {
                         if importedText.isEmpty {
-                            Text("CSV/TXTから読み込んだ内容がここに入ります。必要に応じて保存前に修正できます。")
+                            Text("textFile.textEditor.placeholder")
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
@@ -59,9 +59,9 @@ struct TextFileImportView: View {
                     }
             }
 
-            Section("保存されるカード") {
+            Section(String(localized: "import.savedCards.section")) {
                 if parsedRows.isEmpty {
-                    Text("英語と日本語の順序は任意です。英語のword/phraseを見つけて、自動的に第2言語側へ振り分けます。")
+                    Text("textFile.savedCards.emptyDescription")
                         .foregroundStyle(.secondary)
                 } else {
                     if exceedsCardLimit {
@@ -74,11 +74,11 @@ struct TextFileImportView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.languageTwo)
                                 .font(.headline)
-                            Text("\(deck.languageOneName): \(row.languageOne)")
+                            Text("\(deck.localizedLanguageOneName): \(row.languageOne)")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             if duplicateRowIDs.contains(row.id) {
-                                Text("重複の可能性があります")
+                                Text("import.duplicate.possible")
                                     .font(.caption)
                                     .foregroundStyle(.orange)
                             }
@@ -94,7 +94,7 @@ struct TextFileImportView: View {
             }
 
             if !rejectedRows.isEmpty {
-                Section("保存しない読み取り結果") {
+                Section(String(localized: "import.rejected.section")) {
                     ForEach(rejectedRows) { row in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(row.text)
@@ -107,13 +107,13 @@ struct TextFileImportView: View {
             }
 
         }
-        .navigationTitle("ファイルから追加")
+        .navigationTitle(String(localized: "home.addFromFile.title"))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル") { dismiss() }
+                Button(String(localized: "cardEditor.cancel")) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button(isSaving ? "保存中" : "保存") {
+                Button(isSaving ? String(localized: "import.save.inProgress") : String(localized: "cardEditor.save")) {
                     Task { await attemptSaveRows() }
                 }
                 .disabled(parsedRows.isEmpty || isSaving)
@@ -126,7 +126,7 @@ struct TextFileImportView: View {
         ) { result in
             handleFileImport(result)
         }
-        .alert("読み込めませんでした", isPresented: Binding(
+        .alert(String(localized: "textFile.loadError.title"), isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
@@ -134,28 +134,28 @@ struct TextFileImportView: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .alert("カード数の上限を超えています", isPresented: Binding(
+        .alert(String(localized: "common.cardLimit.title"), isPresented: Binding(
             get: { cardLimitWarningMessage != nil },
             set: { if !$0 { cardLimitWarningMessage = nil } }
         )) {
-            Button("1週間無料トライアルを見る") {
+            Button(String(localized: "common.viewTrial")) {
                 cardLimitWarningMessage = nil
                 showingPremiumUpgrade = true
             }
-            Button("戻る", role: .cancel) {}
+            Button(String(localized: "import.alert.duplicate.back"), role: .cancel) {}
         } message: {
             Text(cardLimitWarningMessage ?? "")
         }
-        .alert("重複があります", isPresented: Binding(
+        .alert(String(localized: "cardEditor.alert.duplicate.title"), isPresented: Binding(
             get: { duplicateWarningMessage != nil },
             set: { if !$0 { duplicateWarningMessage = nil } }
         )) {
-            Button("重複を含めて保存") {
+            Button(String(localized: "cardEditor.alert.duplicate.allow")) {
                 let rows = parsedRows
                 duplicateWarningMessage = nil
                 Task { await saveRows(rows) }
             }
-            Button("戻る", role: .cancel) {}
+            Button(String(localized: "import.alert.duplicate.back"), role: .cancel) {}
         } message: {
             Text(duplicateWarningMessage ?? "")
         }
@@ -189,7 +189,11 @@ struct TextFileImportView: View {
     }
 
     private var cardLimitSummary: String {
-        "無料版のカード上限を超えています。追加可能: 残り\(remainingFreeCardSlots)枚 / 保存対象: \(parsedRows.count)枚"
+        String.localizedStringWithFormat(
+            String(localized: "common.cardLimit.summary"),
+            Int64(remainingFreeCardSlots),
+            Int64(parsedRows.count)
+        )
     }
 
     private func handleFileImport(_ result: Result<[URL], Error>) {
@@ -204,7 +208,7 @@ struct TextFileImportView: View {
 
             let data = try Data(contentsOf: url)
             guard let text = decodeText(from: data) else {
-                errorMessage = "UTF-8または日本語の一般的な文字コードとして読み取れませんでした。"
+                errorMessage = String(localized: "textFile.encodingError")
                 return
             }
 
@@ -228,7 +232,10 @@ struct TextFileImportView: View {
     private func attemptSaveRows() async {
         let rows = parsedRows
         guard settings.canAddCards(totalCardCount: totalCardCount, adding: rows.count) else {
-            cardLimitWarningMessage = "\(cardLimitSummary)。保存するには、1週間無料プレミアムトライアルを開始するか、読み取り結果を編集して保存対象を減らしてください。"
+            cardLimitWarningMessage = String.localizedStringWithFormat(
+                String(localized: "common.cardLimit.message"),
+                cardLimitSummary
+            )
             return
         }
 

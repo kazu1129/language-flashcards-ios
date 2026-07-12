@@ -11,22 +11,22 @@ enum ReviewRating: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .perfect:
-            "完璧"
+            String(localized: "reviewRating.title.perfect")
         case .unsure:
-            "まだ自信ない"
+            String(localized: "reviewRating.title.unsure")
         case .unknown:
-            "わからなかった"
+            String(localized: "reviewRating.title.unknown")
         }
     }
 
     var shortTitle: String {
         switch self {
         case .perfect:
-            "完璧"
+            String(localized: "reviewRating.short.perfect")
         case .unsure:
-            "自信なし"
+            String(localized: "reviewRating.short.unsure")
         case .unknown:
-            "不明"
+            String(localized: "reviewRating.short.unknown")
         }
     }
 
@@ -41,4 +41,3 @@ enum ReviewRating: String, CaseIterable, Codable, Identifiable {
         }
     }
 }
-

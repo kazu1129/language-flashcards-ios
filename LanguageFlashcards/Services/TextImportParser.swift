@@ -53,7 +53,7 @@ enum TextImportParser {
                 TextImportRejectedRow(
                     id: "\(index)-rejected",
                     text: line,
-                    reason: "英語のword/phraseとして認識できなかったため、保存対象から外しました。"
+                    reason: String(localized: "import.rejected.noEnglish")
                 )
             )
         }
@@ -70,7 +70,7 @@ enum TextImportParser {
                     languageOne: counterpart,
                     languageTwo: englishPart,
                     englishTerm: englishPart,
-                    note: "第1言語と第2言語をペアで登録します。"
+                    note: String(localized: "import.note.paired")
                 )
             )
         }
@@ -82,7 +82,7 @@ enum TextImportParser {
                     languageOne: englishPart,
                     languageTwo: englishPart,
                     englishTerm: englishPart,
-                    note: "英語のみ読み取れたため、第1言語も同じ内容で仮登録します。必要に応じて編集してください。"
+                    note: String(localized: "import.note.englishOnly")
                 )
             )
     }

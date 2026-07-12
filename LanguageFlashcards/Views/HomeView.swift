@@ -27,13 +27,19 @@ struct HomeView: View {
                     .listRowSeparator(.hidden)
                 }
 
-                Section("フラッシュカードセット") {
+                Section(String(localized: "home.flashcardSets.section")) {
                     if decks.isEmpty {
-                        ContentUnavailableView(
-                            "フラッシュカードセットがありません",
-                            systemImage: "rectangle.stack.badge.plus",
-                            description: Text("右上の追加ボタンから、最初のセットを作れます。")
-                        )
+                        Button {
+                            presentDeckCreation()
+                        } label: {
+                            ContentUnavailableView(
+                                String(localized: "home.emptyDeck.title"),
+                                systemImage: "rectangle.stack.badge.plus",
+                                description: Text("home.emptyDeck.description")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                     } else {
                         ForEach(decks) { deck in
                             NavigationLink {
@@ -42,7 +48,7 @@ struct HomeView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(deck.name)
                                         .font(.headline)
-                                    Text("\(deck.languageOneName) / \(deck.languageTwoName) ・ \(deck.cards.count)枚")
+                                    Text(localizedDeckSummary(for: deck))
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -62,41 +68,37 @@ struct HomeView: View {
                     .listRowSeparator(.hidden)
                 }
             }
-            .navigationTitle("ホーム")
+            .navigationTitle(String(localized: "home.navigationTitle"))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            if settings.canCreateDeck(existingDeckCount: decks.count) {
-                                showingDeckEditor = true
-                            } else {
-                                showingPremiumUpgrade = true
-                            }
+                            presentDeckCreation()
                         } label: {
-                            Label("セットを追加", systemImage: "rectangle.stack.badge.plus")
+                            Label(String(localized: "home.addDeck"), systemImage: "rectangle.stack.badge.plus")
                         }
 
                         Button {
                             homeImportSource = .camera
                         } label: {
-                            Label("写真を撮る", systemImage: "camera")
+                            Label(String(localized: "home.takePhoto"), systemImage: "camera")
                         }
 
                         Button {
                             homeImportSource = .library
                         } label: {
-                            Label("写真を選ぶ", systemImage: "photo.on.rectangle")
+                            Label(String(localized: "home.choosePhoto"), systemImage: "photo.on.rectangle")
                         }
 
                         Button {
                             showingHomeFileImport = true
                         } label: {
-                            Label("CSV/TXTを読み込む", systemImage: "doc.badge.plus")
+                            Label(String(localized: "home.importCSVTXT"), systemImage: "doc.badge.plus")
                         }
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("追加")
+                    .accessibilityLabel(String(localized: "home.add.accessibility"))
                 }
             }
             .sheet(isPresented: $showingDeckEditor) {
@@ -128,9 +130,40 @@ struct HomeView: View {
         LearningProgress.currentStage(for: streakDays)
     }
 
+    private func presentDeckCreation() {
+        if settings.canCreateDeck(existingDeckCount: decks.count) {
+            showingDeckEditor = true
+        } else {
+            showingPremiumUpgrade = true
+        }
+    }
+
     private func deleteDecks(at offsets: IndexSet) {
         for index in offsets {
             modelContext.delete(decks[index])
+        }
+    }
+}
+
+private func localizedDeckSummary(for deck: FlashcardDeck) -> String {
+    let format = deck.cards.count == 1
+        ? String(localized: "home.deck.summary.one")
+        : String(localized: "home.deck.summary.many")
+    return String.localizedStringWithFormat(
+        format,
+        deck.localizedLanguageOneName,
+        deck.localizedLanguageTwoName,
+        Int64(deck.cards.count)
+    )
+}
+
+private extension OCRImportStartSource {
+    var localizedHomeTitle: String {
+        switch self {
+        case .camera:
+            String(localized: "home.takePhoto")
+        case .library:
+            String(localized: "home.choosePhoto")
         }
     }
 }
@@ -145,12 +178,12 @@ private struct HomeOCRImportDestinationView: View {
         List {
             if decks.isEmpty {
                 ContentUnavailableView(
-                    "追加先のセットがありません",
+                    String(localized: "home.addDestination.empty.title"),
                     systemImage: "rectangle.stack.badge.plus",
-                    description: Text("先にフラッシュカードセットを作ると、写真からカードを追加できます。")
+                    description: Text("home.addDestination.photo.description")
                 )
             } else {
-                Section("追加先のセット") {
+                Section(String(localized: "home.addDestination.section")) {
                     ForEach(decks) { deck in
                         NavigationLink {
                             OCRImportView(
@@ -164,7 +197,7 @@ private struct HomeOCRImportDestinationView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(deck.name)
                                     .font(.headline)
-                                Text("\(deck.languageOneName) / \(deck.languageTwoName) ・ \(deck.cards.count)枚")
+                                Text(localizedDeckSummary(for: deck))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -173,10 +206,10 @@ private struct HomeOCRImportDestinationView: View {
                 }
             }
         }
-        .navigationTitle(source.title)
+        .navigationTitle(source.localizedHomeTitle)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("閉じる") { dismiss() }
+                Button(String(localized: "home.close")) { dismiss() }
             }
         }
     }
@@ -194,12 +227,12 @@ private struct HomeTextFileImportDestinationView: View {
         List {
             if decks.isEmpty {
                 ContentUnavailableView(
-                    "追加先のセットがありません",
+                    String(localized: "home.addDestination.empty.title"),
                     systemImage: "rectangle.stack.badge.plus",
-                    description: Text("先にフラッシュカードセットを作ると、CSV/TXTからカードを追加できます。")
+                    description: Text("home.addDestination.file.description")
                 )
             } else {
-                Section("追加先のセット") {
+                Section(String(localized: "home.addDestination.section")) {
                     ForEach(decks) { deck in
                         NavigationLink {
                             TextFileImportView(
@@ -212,7 +245,7 @@ private struct HomeTextFileImportDestinationView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(deck.name)
                                     .font(.headline)
-                                Text("\(deck.languageOneName) / \(deck.languageTwoName) ・ \(deck.cards.count)枚")
+                                Text(localizedDeckSummary(for: deck))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -221,10 +254,10 @@ private struct HomeTextFileImportDestinationView: View {
                 }
             }
         }
-        .navigationTitle("ファイルから追加")
+        .navigationTitle(String(localized: "home.addFromFile.title"))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("閉じる") { dismiss() }
+                Button(String(localized: "home.close")) { dismiss() }
             }
         }
     }

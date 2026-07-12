@@ -8,9 +8,9 @@ enum OCRServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingImage:
-            "画像を読み込めませんでした。"
+            String(localized: "ocr.error.missingImage")
         case .recognitionFailed:
-            "文字を読み取れませんでした。"
+            String(localized: "ocr.error.recognitionFailed")
         }
     }
 }
@@ -76,4 +76,3 @@ private extension CGImagePropertyOrientation {
         }
     }
 }
-

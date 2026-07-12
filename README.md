@@ -21,12 +21,12 @@ SwiftUI iPhone app for memorizing words and phrases across two languages.
 
 ## Supabase Setup
 
-Create a Supabase project and enable Email/Password authentication. In the app, enter:
+Create a Supabase project and enable Email/Password authentication. Add the public connection details in `LanguageFlashcards/Services/SupabaseConfiguration.swift`:
 
 - Project URL, for example `https://xxxx.supabase.co`
-- Anon public key
+- Publishable key
 
-Do not put a service role key into the iPhone app.
+Do not put a secret key or service role key into the iPhone app.
 
 ## StoreKit Products
 

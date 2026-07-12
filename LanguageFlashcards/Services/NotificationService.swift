@@ -62,8 +62,8 @@ enum NotificationService {
         guard !hasStudiedToday, let reminderDate = nextDate(hour: 20, minute: 0) else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "今日も少しだけ進めましょう"
-        content.body = "1枚だけでも大丈夫。続けた分だけ、言葉はちゃんと残っていきます。"
+        content.title = String(localized: "notification.studyReminder.title")
+        content.body = String(localized: "notification.studyReminder.body")
         content.sound = .default
         schedule(content: content, date: reminderDate, identifier: studyReminderID)
     }
@@ -73,8 +73,14 @@ enum NotificationService {
         let summary = LearningProgress.todaySummary(from: reviews)
 
         let content = UNMutableNotificationContent()
-        content.title = "今日の学習、おつかれさま"
-        content.body = "今日は\(summary.total)回学習しました。完璧\(summary.perfect)、自信なし\(summary.unsure)、わからない\(summary.unknown)。明日も小さく続けましょう。"
+        content.title = String(localized: "notification.dailySummary.title")
+        content.body = String.localizedStringWithFormat(
+            String(localized: "notification.dailySummary.body"),
+            Int64(summary.total),
+            Int64(summary.perfect),
+            Int64(summary.unsure),
+            Int64(summary.unknown)
+        )
         content.sound = .default
         schedule(content: content, date: summaryDate, identifier: dailySummaryID)
     }
@@ -89,7 +95,7 @@ enum NotificationService {
                 guard let date = Calendar.current.date(byAdding: .day, value: days, to: startDate), date > .now else { continue }
                 let content = UNMutableNotificationContent()
                 content.title = anniversaryTitle(days: days)
-                content.body = "ここまで続けてきたこと自体が力です。今日もカードを1枚めくって、積み重ねを伸ばしましょう。"
+                content.body = String(localized: "notification.anniversary.body")
                 content.sound = .default
                 schedule(content: content, date: date, identifier: "\(anniversaryIDPrefix)\(days)")
             }
@@ -98,8 +104,8 @@ enum NotificationService {
         guard settings.hasBirthday else { return }
         if let birthdayDate = nextBirthday(from: settings.birthday) {
             let content = UNMutableNotificationContent()
-            content.title = "お誕生日おめでとうございます"
-            content.body = "新しい一年も、言葉を少しずつ増やしていきましょう。今日は記念の1枚から。"
+            content.title = String(localized: "notification.birthday.title")
+            content.body = String(localized: "notification.birthday.body")
             content.sound = .default
             schedule(content: content, date: birthdayDate, identifier: birthdayID)
         }
@@ -111,8 +117,11 @@ enum NotificationService {
         guard stage.level > settings.lastNotifiedGrowthStage(), stage.level > 1 else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "学習パートナーが成長しました"
-        content.body = "\(stage.title)になりました。続けた分だけ、ちゃんと力になっています。新しい姿を確認しましょう。"
+        content.title = String(localized: "notification.growth.title")
+        content.body = String.localizedStringWithFormat(
+            String(localized: "notification.growth.body"),
+            stage.localizedTitle
+        )
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false)
@@ -178,15 +187,15 @@ enum NotificationService {
     private static func anniversaryTitle(days: Int) -> String {
         switch days {
         case 30:
-            "学習開始から1ヶ月です"
+            String(localized: "notification.anniversary.30.title")
         case 90:
-            "3ヶ月の継続、おめでとうございます"
+            String(localized: "notification.anniversary.90.title")
         case 180:
-            "半年続きました"
+            String(localized: "notification.anniversary.180.title")
         case 365:
-            "1年継続の記念日です"
+            String(localized: "notification.anniversary.365.title")
         default:
-            "学習の記念日です"
+            String(localized: "notification.anniversary.default.title")
         }
     }
 }

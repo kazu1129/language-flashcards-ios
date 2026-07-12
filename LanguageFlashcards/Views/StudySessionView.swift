@@ -5,6 +5,7 @@ struct StudySessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
+    @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
     @Bindable var deck: FlashcardDeck
     var onFinish: () -> Void
 
@@ -15,6 +16,9 @@ struct StudySessionView: View {
     @State private var ratedCardIDs: Set<UUID> = []
     @State private var showRatingReminder = false
     @State private var showingCompletion = false
+    @State private var editingCard: Flashcard?
+    @State private var completionPraiseMessage = Self.randomPraiseMessage()
+    @State private var completionMotion = CharacterCelebrationMotion.random()
 
     init(deck: FlashcardDeck, onFinish: @escaping () -> Void = {}) {
         self._deck = Bindable(deck)
@@ -25,13 +29,16 @@ struct StudySessionView: View {
         Group {
             if sessionCards.isEmpty {
                 ContentUnavailableView(
-                    "学習できるカードがありません",
+                    String(localized: "study.empty.title"),
                     systemImage: "rectangle.stack.badge.person.crop",
-                    description: Text("カードを追加してから学習を開始してください。")
+                    description: Text("study.empty.description")
                 )
             } else if showingCompletion {
                 StudySessionCompletionView(
                     studiedCount: ratedCardIDs.count,
+                    stage: currentStage,
+                    praiseMessage: completionPraiseMessage,
+                    motion: completionMotion,
                     nextSetAction: startNextSession,
                     finishAction: finishSession
                 )
@@ -68,7 +75,7 @@ struct StudySessionView: View {
                     .padding(.horizontal)
 
                     if showRatingReminder {
-                        Text("次に進む前に、記憶の確からしさを選んでください。")
+                        Text("study.ratingReminder")
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
@@ -95,7 +102,7 @@ struct StudySessionView: View {
                         Button {
                             movePrevious()
                         } label: {
-                            Label("前へ", systemImage: "chevron.left")
+                            Label(String(localized: "study.previous"), systemImage: "chevron.left")
                         }
                         .disabled(currentIndex == 0)
 
@@ -104,7 +111,12 @@ struct StudySessionView: View {
                         Button {
                             moveNext()
                         } label: {
-                            Label(currentIndex == sessionCards.count - 1 ? "完了" : "次へ", systemImage: "chevron.right")
+                            Label(
+                                currentIndex == sessionCards.count - 1
+                                    ? String(localized: "study.complete")
+                                    : String(localized: "study.next"),
+                                systemImage: "chevron.right"
+                            )
                         }
                     }
                     .padding(.horizontal)
@@ -114,6 +126,22 @@ struct StudySessionView: View {
         }
         .navigationTitle(deck.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    editCurrentCard()
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .accessibilityLabel(String(localized: "study.card.edit.accessibility"))
+                .disabled(currentCard == nil || showingCompletion)
+            }
+        }
+        .sheet(item: $editingCard) { card in
+            NavigationStack {
+                CardEditorView(deck: deck, card: card, totalCardCount: deck.cards.count)
+            }
+        }
         .onAppear {
             if sessionCards.isEmpty {
                 sessionCards = StudyScheduler.plan(cards: deck.cards, count: settings.sessionCardCount)
@@ -127,6 +155,18 @@ struct StudySessionView: View {
     private var currentCard: Flashcard? {
         guard sessionCards.indices.contains(currentIndex) else { return nil }
         return sessionCards[currentIndex]
+    }
+
+    private var currentStage: CharacterGrowthStage {
+        LearningProgress.currentStage(
+            for: LearningProgress.consecutiveStudyDays(from: reviews)
+        )
+    }
+
+    private func editCurrentCard() {
+        guard let currentCard else { return }
+        speech.stop()
+        editingCard = currentCard
     }
 
     private func toggleFlip(for card: Flashcard) {
@@ -209,6 +249,8 @@ struct StudySessionView: View {
     private func completeSession() {
         showRatingReminder = false
         speech.stop()
+        completionPraiseMessage = Self.randomPraiseMessage(excluding: completionPraiseMessage)
+        completionMotion = CharacterCelebrationMotion.random(excluding: completionMotion)
         withAnimation(.snappy) {
             showingCompletion = true
             flipped = false
@@ -244,49 +286,115 @@ struct StudySessionView: View {
             "xmark.circle.fill"
         }
     }
+
+    private static func randomPraiseMessage(excluding previousMessage: String? = nil) -> String {
+        let messages = [
+            String(localized: "study.praise.1"),
+            String(localized: "study.praise.2"),
+            String(localized: "study.praise.3"),
+            String(localized: "study.praise.4"),
+            String(localized: "study.praise.5"),
+            String(localized: "study.praise.6"),
+            String(localized: "study.praise.7"),
+            String(localized: "study.praise.8")
+        ]
+
+        let candidates = messages.filter { $0 != previousMessage }
+        return candidates.randomElement() ?? messages[0]
+    }
 }
 
 private struct StudySessionCompletionView: View {
     var studiedCount: Int
+    var stage: CharacterGrowthStage
+    var praiseMessage: String
+    var motion: CharacterCelebrationMotion
     var nextSetAction: () -> Void
     var finishAction: () -> Void
 
+    @State private var popupVisible = false
+
     var body: some View {
-        VStack(spacing: 22) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 58))
-                .foregroundStyle(.green)
+        ScrollView {
+            VStack(spacing: 22) {
+                VStack(spacing: 12) {
+                    CharacterCelebrationView(stage: stage, motion: motion)
+                        .scaleEffect(popupVisible ? 1 : 0.82)
+                        .opacity(popupVisible ? 1 : 0)
 
-            VStack(spacing: 8) {
-                Text("このセットが完了しました")
-                    .font(.title2.bold())
-                Text("\(studiedCount)枚を学習しました。続ける場合は、忘却曲線で優先度が高いカードから次のセットを出します。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            VStack(spacing: 12) {
-                Button {
-                    nextSetAction()
-                } label: {
-                    Label("次のセット", systemImage: "arrow.clockwise")
-                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 8) {
+                        Text(praiseMessage)
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
+                        Text("study.completion.characterHappy")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(.blue.opacity(0.22), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 8)
+                    .scaleEffect(popupVisible ? 1 : 0.9)
+                    .opacity(popupVisible ? 1 : 0)
                 }
-                .buttonStyle(.borderedProminent)
+                .animation(.spring(response: 0.48, dampingFraction: 0.72), value: popupVisible)
 
-                Button {
-                    finishAction()
-                } label: {
-                    Label("終了", systemImage: "chart.line.uptrend.xyaxis")
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 8) {
+                    Text("study.completion.title")
+                        .font(.title2.bold())
+                    Text(completionSummaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.bordered)
+
+                VStack(spacing: 12) {
+                    Button {
+                        nextSetAction()
+                    } label: {
+                        Label(String(localized: "study.completion.nextSet"), systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        finishAction()
+                    } label: {
+                        Label(String(localized: "study.completion.finish"), systemImage: "chart.line.uptrend.xyaxis")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.top, 8)
             }
-            .padding(.top, 8)
+            .frame(maxWidth: .infinity)
+            .padding(28)
         }
-        .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            popupVisible = true
+        }
+    }
+
+    private var completionSummaryText: String {
+        let format = studiedCount == 1
+            ? String(localized: "study.completion.summary.one")
+            : String(localized: "study.completion.summary.many")
+        return String.localizedStringWithFormat(format, Int64(studiedCount))
     }
 }
 
@@ -320,7 +428,7 @@ private struct FlashcardStudyCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         if card.meanings.isEmpty {
-                            Text("意味・同義語・例文は未入力です。カード編集画面で入力できます。")
+                            Text("study.meanings.empty")
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(card.meanings) { meaning in
@@ -328,7 +436,7 @@ private struct FlashcardStudyCard: View {
                                     VStack(alignment: .leading, spacing: 8) {
                                         if !meaning.synonyms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("同義語")
+                                                Text("study.synonyms.label")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                                 Text(meaning.synonyms)
@@ -338,7 +446,7 @@ private struct FlashcardStudyCard: View {
 
                                         if shouldShowAdditionalMeaning(meaning.meaning) {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("それ以外の意味")
+                                                Text("study.additionalMeaning.label")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                                 Text(meaning.meaning)
@@ -348,7 +456,7 @@ private struct FlashcardStudyCard: View {
 
                                         if !meaning.example.isEmpty {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("英語例文")
+                                                Text("study.englishExample.label")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                                 Text(meaning.example)
@@ -358,7 +466,7 @@ private struct FlashcardStudyCard: View {
 
                                         if !meaning.exampleTranslation.isEmpty {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("日本語例文")
+                                                Text("study.japaneseExample.label")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                                 Text(meaning.exampleTranslation)
@@ -379,14 +487,14 @@ private struct FlashcardStudyCard: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 VStack(spacing: 12) {
-                    Text(shownSide == .languageOne ? deck.languageOneName : deck.languageTwoName)
+                    Text(shownSide == .languageOne ? deck.localizedLanguageOneName : deck.localizedLanguageTwoName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(card.visibleText(for: shownSide))
                         .font(.system(size: 34 * fontScale, weight: .bold))
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.6)
-                    Text("タップして裏面を表示")
+                    Text("study.tapToFlip")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

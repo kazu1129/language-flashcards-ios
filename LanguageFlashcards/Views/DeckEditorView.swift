@@ -7,34 +7,34 @@ struct DeckEditorView: View {
 
     private let deck: FlashcardDeck?
     @State private var name = ""
-    @State private var languageOneName = "日本語"
-    @State private var languageTwoName = "英語"
+    @State private var languageOneName = String(localized: "language.japanese")
+    @State private var languageTwoName = String(localized: "language.english")
 
     init(deck: FlashcardDeck? = nil) {
         self.deck = deck
         self._name = State(initialValue: deck?.name ?? "")
-        self._languageOneName = State(initialValue: deck?.languageOneName ?? "日本語")
-        self._languageTwoName = State(initialValue: deck?.languageTwoName ?? "英語")
+        self._languageOneName = State(initialValue: deck?.localizedLanguageOneName ?? String(localized: "language.japanese"))
+        self._languageTwoName = State(initialValue: deck?.localizedLanguageTwoName ?? String(localized: "language.english"))
     }
 
     var body: some View {
         Form {
-            Section("セット") {
-                TextField("名前", text: $name)
+            Section(String(localized: "deckEditor.set.section")) {
+                TextField(String(localized: "deckEditor.name.placeholder"), text: $name)
             }
 
-            Section("言語") {
-                TextField("第1言語", text: $languageOneName)
-                TextField("第2言語", text: $languageTwoName)
+            Section(String(localized: "deckEditor.languages.section")) {
+                TextField(String(localized: "deckEditor.languageOne.placeholder"), text: $languageOneName)
+                TextField(String(localized: "deckEditor.languageTwo.placeholder"), text: $languageTwoName)
             }
         }
-        .navigationTitle(deck == nil ? "セットを追加" : "セットを編集")
+        .navigationTitle(deck == nil ? String(localized: "deckEditor.add.title") : String(localized: "deckEditor.edit.title"))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル") { dismiss() }
+                Button(String(localized: "common.cancel")) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("保存") {
+                Button(String(localized: "common.save")) {
                     save()
                     dismiss()
                 }

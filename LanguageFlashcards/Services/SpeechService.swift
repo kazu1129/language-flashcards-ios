@@ -37,27 +37,26 @@ enum LanguageCodeResolver {
     static func code(for languageName: String) -> String? {
         let normalized = languageName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let map: [String: String] = [
-            "日本語": "ja-JP",
+            "\u{65E5}\u{672C}\u{8A9E}": "ja-JP",
             "japanese": "ja-JP",
-            "英語": "en-US",
+            "\u{82F1}\u{8A9E}": "en-US",
             "english": "en-US",
-            "米語": "en-US",
-            "中国語": "zh-CN",
+            "\u{7C73}\u{8A9E}": "en-US",
+            "\u{4E2D}\u{56FD}\u{8A9E}": "zh-CN",
             "chinese": "zh-CN",
-            "韓国語": "ko-KR",
+            "\u{97D3}\u{56FD}\u{8A9E}": "ko-KR",
             "korean": "ko-KR",
-            "フランス語": "fr-FR",
+            "\u{30D5}\u{30E9}\u{30F3}\u{30B9}\u{8A9E}": "fr-FR",
             "french": "fr-FR",
-            "スペイン語": "es-ES",
+            "\u{30B9}\u{30DA}\u{30A4}\u{30F3}\u{8A9E}": "es-ES",
             "spanish": "es-ES",
-            "ドイツ語": "de-DE",
+            "\u{30C9}\u{30A4}\u{30C4}\u{8A9E}": "de-DE",
             "german": "de-DE",
-            "イタリア語": "it-IT",
+            "\u{30A4}\u{30BF}\u{30EA}\u{30A2}\u{8A9E}": "it-IT",
             "italian": "it-IT",
-            "ポルトガル語": "pt-BR",
+            "\u{30DD}\u{30EB}\u{30C8}\u{30AC}\u{30EB}\u{8A9E}": "pt-BR",
             "portuguese": "pt-BR"
         ]
         return map[normalized]
     }
 }
-

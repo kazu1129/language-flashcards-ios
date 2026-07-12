@@ -12,26 +12,26 @@ struct PremiumUpgradeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("1週間無料プレミアムトライアル")
+                        Text("home.premiumTrial.title")
                             .font(.title.bold())
-                        Text("まずは7日間、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
+                        Text("premium.hero.description")
                             .foregroundStyle(.secondary)
                     }
 
                     VStack(spacing: 12) {
-                        PremiumBenefitRow(icon: "rectangle.stack.badge.plus", title: "カードとセットを無制限に", detail: "無料は3セット・100カードまで。")
-                        PremiumBenefitRow(icon: "camera.viewfinder", title: "写真OCRをもっと使える", detail: "無料は月10回まで。メモ写真からまとめて追加。")
-                        PremiumBenefitRow(icon: "chart.line.uptrend.xyaxis", title: "詳しい成果分析", detail: "長期推移や弱点の把握をしやすく。")
-                        PremiumBenefitRow(icon: "square.and.arrow.up", title: "PDF共有に対応", detail: "学習セットをきれいに出力。")
-                        PremiumBenefitRow(icon: "leaf.fill", title: "継続を後押しする通知", detail: "成長通知や記念日メッセージで続けやすく。")
+                        PremiumBenefitRow(icon: "rectangle.stack.badge.plus", title: String(localized: "premium.benefit.cards.title"), detail: String(localized: "premium.benefit.cards.detail"))
+                        PremiumBenefitRow(icon: "camera.viewfinder", title: String(localized: "premium.benefit.ocr.title"), detail: String(localized: "premium.benefit.ocr.detail"))
+                        PremiumBenefitRow(icon: "chart.line.uptrend.xyaxis", title: String(localized: "premium.benefit.analytics.title"), detail: String(localized: "premium.benefit.analytics.detail"))
+                        PremiumBenefitRow(icon: "square.and.arrow.up", title: String(localized: "premium.benefit.pdf.title"), detail: String(localized: "premium.benefit.pdf.detail"))
+                        PremiumBenefitRow(icon: "leaf.fill", title: String(localized: "premium.benefit.notifications.title"), detail: String(localized: "premium.benefit.notifications.detail"))
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("プラン")
+                        Text("premium.plan.section")
                             .font(.headline)
 
                         if subscriptionStore.isLoading {
-                            ProgressView("商品を読み込み中...")
+                            ProgressView(String(localized: "premium.loadingProducts"))
                                 .frame(maxWidth: .infinity, alignment: .center)
                         } else if subscriptionStore.products.isEmpty {
                             ProductSetupNotice()
@@ -58,27 +58,27 @@ struct PremiumUpgradeView: View {
                             await subscriptionStore.restorePurchases(settings: settings)
                         }
                     } label: {
-                        Label("購入状態を復元", systemImage: "arrow.clockwise")
+                        Label(String(localized: "premium.restorePurchases"), systemImage: "arrow.clockwise")
                     }
                     .disabled(subscriptionStore.isPurchasing)
 
                     if let message = subscriptionStore.message {
                         Text(message)
                             .font(.caption)
-                            .foregroundStyle(message.contains("失敗") ? .red : .secondary)
+                            .foregroundStyle(subscriptionStore.isMessageError ? .red : .secondary)
                     }
 
-                    Text("1週間無料トライアルはApp Store Connectの商品設定でMonthly/Yearlyの両方に設定します。アプリはStoreKit商品を読み込み、購入時にSupabaseユーザーIDをAppleの購入情報へ紐づけます。")
+                    Text("premium.note")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding()
             }
-            .navigationTitle("プレミアム")
+            .navigationTitle(String(localized: "premium.navigationTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") { dismiss() }
+                    Button(String(localized: "premium.close")) { dismiss() }
                 }
             }
         }
@@ -96,14 +96,14 @@ struct PremiumHomeCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("1週間無料プレミアムトライアル", systemImage: "crown.fill")
+                    Label(String(localized: "home.premiumTrial.title"), systemImage: "crown.fill")
                         .font(.headline)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.bold())
                 }
 
-                Text("無制限カード、OCR、PDF共有、詳しい成果分析を7日間試せます。")
+                Text("home.premiumTrial.description")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -151,7 +151,7 @@ private struct ProductPurchaseRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(subscriptionStore.displayName(for: product))
                         .font(.headline)
-                    Text("\(subscriptionStore.periodText(for: product))・最初の1週間無料")
+                    Text(freeTrialText)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -166,14 +166,21 @@ private struct ProductPurchaseRow: View {
         .buttonStyle(.plain)
         .disabled(subscriptionStore.isPurchasing)
     }
+
+    private var freeTrialText: String {
+        String.localizedStringWithFormat(
+            String(localized: "premium.product.freeTrial"),
+            subscriptionStore.periodText(for: product)
+        )
+    }
 }
 
 private struct ProductSetupNotice: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("StoreKit商品が未設定です", systemImage: "exclamationmark.triangle")
+            Label(String(localized: "premium.setup.title"), systemImage: "exclamationmark.triangle")
                 .font(.headline)
-            Text("App Store Connectで以下の自動更新サブスクリプションを作成し、それぞれに1週間無料トライアルを設定してください。")
+            Text("premium.setup.detail")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(SubscriptionStore.monthlyProductID)

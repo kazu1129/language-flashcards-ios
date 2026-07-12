@@ -24,31 +24,37 @@ struct DeckDetailView: View {
                 NavigationLink {
                     StudySessionView(deck: deck, onFinish: onShowDashboard)
                 } label: {
-                    Label("学習を開始", systemImage: "play.circle.fill")
+                    Label(String(localized: "deckDetail.startStudy"), systemImage: "play.circle.fill")
                         .font(.headline)
                 }
                 .disabled(deck.cards.isEmpty)
 
                 HStack {
-                    Label("\(settings.sessionCardCount)枚 / セッション", systemImage: "number.circle")
+                    Label(sessionCardsText, systemImage: "number.circle")
                     Spacer()
-                    Text(settings.displaySide.title + "から表示")
+                    Text(displaySideStartText)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            Section("カード") {
+            Section(String(localized: "deckDetail.cards.section")) {
                 if deck.cards.isEmpty {
-                    ContentUnavailableView(
-                        "カードがありません",
-                        systemImage: "plus.rectangle.on.rectangle",
-                        description: Text("直接入力、写真、CSV/TXTから追加できます。")
-                    )
+                    Button {
+                        presentManualEntry()
+                    } label: {
+                        ContentUnavailableView(
+                            String(localized: "deckDetail.empty.title"),
+                            systemImage: "plus.rectangle.on.rectangle",
+                            description: Text("deckDetail.empty.description")
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                 } else if filteredCards.isEmpty {
                     ContentUnavailableView(
-                        "見つかりません",
+                        String(localized: "deckDetail.noResults.title"),
                         systemImage: "magnifyingglass",
-                        description: Text("検索語を変えてもう一度試してください。")
+                        description: Text("deckDetail.noResults.description")
                     )
                 } else {
                     ForEach(filteredCards) { card in
@@ -59,11 +65,11 @@ struct DeckDetailView: View {
                                 Text(card.languageOneText)
                                     .font(.headline)
                                     .foregroundStyle(.primary)
-                                Text(card.languageTwoText.isEmpty ? "手入力待ち" : card.languageTwoText)
+                                Text(card.languageTwoText.isEmpty ? String(localized: "deckDetail.manualPending") : card.languageTwoText)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 if let last = card.lastRating {
-                                    Text("前回: \(last.title)")
+                                    Text(lastRatingText(for: last))
                                         .font(.caption)
                                         .foregroundStyle(last.tint)
                                 }
@@ -74,27 +80,27 @@ struct DeckDetailView: View {
                             Button {
                                 editingCard = card
                             } label: {
-                                Label("編集", systemImage: "pencil")
+                                Label(String(localized: "deckDetail.edit"), systemImage: "pencil")
                             }
 
                             Button(role: .destructive) {
                                 deleteCard(card)
                             } label: {
-                                Label("削除", systemImage: "trash")
+                                Label(String(localized: "deckDetail.delete"), systemImage: "trash")
                             }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 deleteCard(card)
                             } label: {
-                                Label("削除", systemImage: "trash")
+                                Label(String(localized: "deckDetail.delete"), systemImage: "trash")
                             }
                         }
                         .swipeActions(edge: .leading) {
                             Button {
                                 editingCard = card
                             } label: {
-                                Label("編集", systemImage: "pencil")
+                                Label(String(localized: "deckDetail.edit"), systemImage: "pencil")
                             }
                             .tint(.blue)
                         }
@@ -104,7 +110,7 @@ struct DeckDetailView: View {
             }
         }
         .navigationTitle(deck.name)
-        .searchable(text: $searchText, prompt: "単語や表現を検索")
+        .searchable(text: $searchText, prompt: String(localized: "deckDetail.searchPrompt"))
         .toolbar {
             ToolbarItemGroup(placement: .topBarLeading) {
                 Button {
@@ -112,7 +118,7 @@ struct DeckDetailView: View {
                 } label: {
                     Image(systemName: "pencil")
                 }
-                .accessibilityLabel("セット名を編集")
+                .accessibilityLabel(String(localized: "deckDetail.setName.edit.accessibility"))
 
                 if !deck.cards.isEmpty {
                     EditButton()
@@ -121,13 +127,9 @@ struct DeckDetailView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
                     Button {
-                        if settings.canAddCards(totalCardCount: totalCardCount, adding: 1) {
-                            showingManualEntry = true
-                        } else {
-                            showingPremiumUpgrade = true
-                        }
+                        presentManualEntry()
                     } label: {
-                        Label("直接入力", systemImage: "keyboard")
+                        Label(String(localized: "deckDetail.directEntry"), systemImage: "keyboard")
                     }
 
                     Button {
@@ -137,7 +139,7 @@ struct DeckDetailView: View {
                             showingPremiumUpgrade = true
                         }
                     } label: {
-                        Label("写真を撮る", systemImage: "camera")
+                        Label(String(localized: "home.takePhoto"), systemImage: "camera")
                     }
 
                     Button {
@@ -147,23 +149,23 @@ struct DeckDetailView: View {
                             showingPremiumUpgrade = true
                         }
                     } label: {
-                        Label("写真を選ぶ", systemImage: "photo.on.rectangle")
+                        Label(String(localized: "home.choosePhoto"), systemImage: "photo.on.rectangle")
                     }
 
                     Button {
                         showingFileImport = true
                     } label: {
-                        Label("CSV/TXTを読み込む", systemImage: "doc.badge.plus")
+                        Label(String(localized: "home.importCSVTXT"), systemImage: "doc.badge.plus")
                     }
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel("カードを追加")
+                .accessibilityLabel(String(localized: "deckDetail.addCard.accessibility"))
 
                 Menu {
-                    Button("TXTで共有") { export(.text) }
-                    Button("CSVで共有") { export(.csv) }
-                    Button(settings.isPremium ? "PDFで共有" : "PDFで共有（プレミアム）") {
+                    Button(String(localized: "deckDetail.share.txt")) { export(.text) }
+                    Button(String(localized: "deckDetail.share.csv")) { export(.csv) }
+                    Button(settings.isPremium ? String(localized: "deckDetail.share.pdf") : String(localized: "deckDetail.share.pdfPremium")) {
                         if settings.isPremium {
                             export(.pdf)
                         } else {
@@ -173,7 +175,7 @@ struct DeckDetailView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                 }
-                .accessibilityLabel("共有")
+                .accessibilityLabel(String(localized: "deckDetail.share.accessibility"))
                 .disabled(deck.cards.isEmpty)
             }
         }
@@ -208,7 +210,7 @@ struct DeckDetailView: View {
         .sheet(isPresented: $showingPremiumUpgrade) {
             PremiumUpgradeView()
         }
-        .alert("共有ファイルを作れませんでした", isPresented: Binding(
+        .alert(String(localized: "deckDetail.exportError.title"), isPresented: Binding(
             get: { exportError != nil },
             set: { if !$0 { exportError = nil } }
         )) {
@@ -220,6 +222,20 @@ struct DeckDetailView: View {
 
     private var totalCardCount: Int {
         allDecks.reduce(0) { $0 + $1.cards.count }
+    }
+
+    private var sessionCardsText: String {
+        String.localizedStringWithFormat(
+            String(localized: "deckDetail.sessionCards"),
+            Int64(settings.sessionCardCount)
+        )
+    }
+
+    private var displaySideStartText: String {
+        String.localizedStringWithFormat(
+            String(localized: "deckDetail.displaySideStart"),
+            settings.displaySide.title
+        )
     }
 
     private var filteredCards: [Flashcard] {
@@ -236,6 +252,21 @@ struct DeckDetailView: View {
                 meaning.example.localizedCaseInsensitiveContains(query) ||
                 meaning.exampleTranslation.localizedCaseInsensitiveContains(query)
             }
+        }
+    }
+
+    private func lastRatingText(for rating: ReviewRating) -> String {
+        String.localizedStringWithFormat(
+            String(localized: "deckDetail.lastRating"),
+            rating.title
+        )
+    }
+
+    private func presentManualEntry() {
+        if settings.canAddCards(totalCardCount: totalCardCount, adding: 1) {
+            showingManualEntry = true
+        } else {
+            showingPremiumUpgrade = true
         }
     }
 
