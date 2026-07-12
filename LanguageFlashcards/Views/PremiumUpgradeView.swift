@@ -12,9 +12,9 @@ struct PremiumUpgradeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("1週間無料プレミアムトライアル")
+                        Text(subscriptionStore.trialLabelAny.map { "\($0)無料プレミアムトライアル" } ?? "プレミアムトライアル")
                             .font(.title.bold())
-                        Text("まずは7日間、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
+                        Text(subscriptionStore.trialLabelAny.map { "まずは\($0)、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。" } ?? "カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
                             .foregroundStyle(.secondary)
                     }
 
@@ -68,7 +68,7 @@ struct PremiumUpgradeView: View {
                             .foregroundStyle(message.contains("失敗") ? .red : .secondary)
                     }
 
-                    Text("1週間無料トライアルはApp Store Connectの商品設定でMonthly/Yearlyの両方に設定します。アプリはStoreKit商品を読み込み、購入時にSupabaseユーザーIDをAppleの購入情報へ紐づけます。")
+                    Text("無料トライアルはApp Store Connectの商品設定でMonthly/Yearlyの両方に設定します。アプリはStoreKit商品を読み込み、購入時にSupabaseユーザーIDをAppleの購入情報へ紐づけます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -96,14 +96,14 @@ struct PremiumHomeCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("1週間無料プレミアムトライアル", systemImage: "crown.fill")
+                    Label("無料プレミアムトライアル", systemImage: "crown.fill")
                         .font(.headline)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.bold())
                 }
 
-                Text("無制限カード、OCR、PDF共有、詳しい成果分析を7日間試せます。")
+                Text("無制限カード、OCR、PDF共有、詳しい成果分析を無料で試せます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -151,7 +151,7 @@ private struct ProductPurchaseRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(subscriptionStore.displayName(for: product))
                         .font(.headline)
-                    Text("\(subscriptionStore.periodText(for: product))・最初の1週間無料")
+                    Text(subscriptionStore.trialLabel(for: product).map { "\(subscriptionStore.periodText(for: product))・最初の\($0)無料" } ?? subscriptionStore.periodText(for: product))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -173,7 +173,7 @@ private struct ProductSetupNotice: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("StoreKit商品が未設定です", systemImage: "exclamationmark.triangle")
                 .font(.headline)
-            Text("App Store Connectで以下の自動更新サブスクリプションを作成し、それぞれに1週間無料トライアルを設定してください。")
+            Text("App Store Connectで以下の自動更新サブスクリプションを作成し、それぞれに無料トライアルを設定してください。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(SubscriptionStore.monthlyProductID)
