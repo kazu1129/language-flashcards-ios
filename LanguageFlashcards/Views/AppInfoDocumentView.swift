@@ -34,7 +34,7 @@ enum AppInfoDocument {
                 ),
                 AppInfoSection(
                     heading: "プレミアム",
-                    body: "プレミアムはMonthlyとYearlyの2種類です。どちらもApp Store Connectで1週間無料トライアルを設定し、無料期間終了後にApple IDへ請求されます。購入状態は設定画面から復元できます。"
+                    body: "プレミアムはMonthlyとYearlyの2種類です。どちらもApp Store Connectで無料トライアルを設定し、無料期間終了後にApple IDへ請求されます。購入状態は設定画面から復元できます。"
                 ),
                 AppInfoSection(
                     heading: "学習結果",
@@ -84,7 +84,7 @@ enum AppInfoDocument {
                 ),
                 AppInfoSection(
                     heading: "プレミアムと無料トライアル",
-                    body: "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。MonthlyとYearlyの2種類を提供し、どちらも最初の1週間は無料トライアルです。無料期間終了後の価格、期間、更新条件はApp Storeの購入画面に表示される内容に従います。"
+                    body: "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。MonthlyとYearlyの2種類を提供し、どちらも最初は無料トライアルがあります。無料トライアルの有無・期間・終了後の価格は、App Storeの購入画面に表示される内容に従います。"
                 ),
                 AppInfoSection(
                     heading: "解約",

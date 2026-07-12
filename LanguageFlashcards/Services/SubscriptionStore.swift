@@ -121,6 +121,30 @@ final class SubscriptionStore: ObservableObject {
         }
     }
 
+    // ── 無料トライアル期間の導出（App Store 審査 2.1(b) 対策）──────────
+    // トライアルの有無・期間は固定値で持たず、実商品の introductoryOffer から
+    // 導出する（唯一の真実）。App Store Connect の設定を変えれば表示も追従し、
+    // トライアルが無い商品には「無料トライアル」を宣伝しない。
+    func trialLabel(for product: Product) -> String? {
+        guard let offer = product.subscription?.introductoryOffer,
+              offer.paymentMode == .freeTrial else { return nil }
+        let value = offer.period.value
+        switch offer.period.unit {
+        case .day:   return "\(value)日間"
+        case .week:  return "\(value)週間"
+        case .month: return "\(value)か月"
+        case .year:  return "\(value)年"
+        @unknown default: return nil
+        }
+    }
+
+    // 読み込み済み商品（Monthly→Yearly順）から最初に見つかったトライアル期間ラベル。
+    var trialLabelAny: String? {
+        products.compactMap { trialLabel(for: $0) }.first
+    }
+
+    var hasAnyTrial: Bool { trialLabelAny != nil }
+
     private func observeTransactionUpdates() async {
         for await update in Transaction.updates {
             guard let transaction = try? checkVerified(update) else { continue }

@@ -32,7 +32,7 @@ struct SettingsView: View {
                         Button {
                             showingPremiumUpgrade = true
                         } label: {
-                            Label("1週間無料トライアルを見る", systemImage: "crown")
+                            Label(subscriptionStore.trialLabelAny.map { "\($0)無料トライアルを見る" } ?? "プレミアムを見る", systemImage: "crown")
                         }
                     }
 
@@ -48,7 +48,7 @@ struct SettingsView: View {
                             .foregroundStyle(message.contains("失敗") ? .red : .secondary)
                     }
 
-                    Text("商品ID: \(SubscriptionStore.monthlyProductID) / \(SubscriptionStore.yearlyProductID)。1週間無料トライアルはApp Store Connectで両方の商品に設定します。")
+                    Text("商品ID: \(SubscriptionStore.monthlyProductID) / \(SubscriptionStore.yearlyProductID)。無料トライアルはApp Store Connectで両方の商品に設定します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
