@@ -256,13 +256,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premium has two plans: Monthly and Yearly. Set a 1-week free trial for both in App Store Connect. After the free trial ends, billing is handled through the user's Apple ID. Purchase status can be restored from Settings."
+            "value" : "Premium has two plans: Monthly and Yearly. Set a 2-week free trial for both in App Store Connect. After the free trial ends, billing is handled through the user's Apple ID. Purchase status can be restored from Settings."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プレミアムはMonthlyとYearlyの2種類です。どちらもApp Store Connectで1週間無料トライアルを設定し、無料期間終了後にApple IDへ請求されます。購入状態は設定画面から復元できます。"
+            "value" : "プレミアムはMonthlyとYearlyの2種類です。どちらもApp Store Connectで2週間無料トライアルを設定し、無料期間終了後にApple IDへ請求されます。購入状態は設定画面から復元できます。"
           }
         }
       }
@@ -800,13 +800,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premium expands limits for cards, OCR, sharing, and analytics. It offers Monthly and Yearly plans, and both include a 1-week free trial. After the free period, price, term, and renewal conditions follow the information shown on the App Store purchase screen."
+            "value" : "Premium expands limits for cards, OCR, sharing, and analytics. It offers Monthly and Yearly plans, and both include a 2-week free trial. After the free period, price, term, and renewal conditions follow the information shown on the App Store purchase screen."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。MonthlyとYearlyの2種類を提供し、どちらも最初の1週間は無料トライアルです。無料期間終了後の価格、期間、更新条件はApp Storeの購入画面に表示される内容に従います。"
+            "value" : "プレミアムではカード数、OCR、共有、分析機能の制限が広がります。MonthlyとYearlyの2種類を提供し、どちらも最初の2週間は無料トライアルです。無料期間終了後の価格、期間、更新条件はApp Storeの購入画面に表示される内容に従います。"
           }
         }
       }
@@ -1888,13 +1888,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ To save these cards, start the 1-week free premium trial or edit the results to reduce the cards to save."
+            "value" : "%@ To save these cards, start the 2-week free premium trial or edit the results to reduce the cards to save."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@。保存するには、1週間無料プレミアムトライアルを開始するか、読み取り結果を編集して保存対象を減らしてください。"
+            "value" : "%@。保存するには、2週間無料プレミアムトライアルを開始するか、読み取り結果を編集して保存対象を減らしてください。"
           }
         }
       }
@@ -1985,13 +1985,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "View 1-week free trial"
+            "value" : "View 2-week free trial"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1週間無料トライアルを見る"
+            "value" : "2週間無料トライアルを見る"
           }
         }
       }
@@ -3301,13 +3301,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Try unlimited cards, OCR, PDF sharing, and detailed progress analytics for 7 days."
+            "value" : "Try unlimited cards, OCR, PDF sharing, and detailed progress analytics for 2 weeks."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無制限カード、OCR、PDF共有、詳しい成果分析を7日間試せます。"
+            "value" : "無制限カード、OCR、PDF共有、詳しい成果分析を2週間試せます。"
           }
         }
       }
@@ -3317,13 +3317,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1-week free premium trial"
+            "value" : "2-week free premium trial"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1週間無料プレミアムトライアル"
+            "value" : "2週間無料プレミアムトライアル"
           }
         }
       }
@@ -3797,13 +3797,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continue OCR with the 1-week free trial"
+            "value" : "Continue OCR with the 2-week free trial"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1週間無料トライアルでOCRを続ける"
+            "value" : "2週間無料トライアルでOCRを続ける"
           }
         }
       }
@@ -4204,13 +4204,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Try expanded cards, OCR, analytics, and sharing for 7 days. You can keep learning on the free plan too."
+            "value" : "Try expanded cards, OCR, analytics, and sharing for 2 weeks. You can keep learning on the free plan too."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "まずは7日間、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。"
+            "value" : "まずは2週間、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。"
           }
         }
       }
@@ -4252,13 +4252,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set the 1-week free trial for both Monthly and Yearly products in App Store Connect. The app loads StoreKit products and links purchases to the Supabase user ID."
+            "value" : "Set the 2-week free trial for both Monthly and Yearly products in App Store Connect. The app loads StoreKit products and links purchases to the Supabase user ID."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1週間無料トライアルはApp Store Connectの商品設定でMonthly/Yearlyの両方に設定します。アプリはStoreKit商品を読み込み、購入時にSupabaseユーザーIDをAppleの購入情報へ紐づけます。"
+            "value" : "2週間無料トライアルはApp Store Connectの商品設定でMonthly/Yearlyの両方に設定します。アプリはStoreKit商品を読み込み、購入時にSupabaseユーザーIDをAppleの購入情報へ紐づけます。"
           }
         }
       }
@@ -4284,13 +4284,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ · first week free"
+            "value" : "%@ · first 2 weeks free"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@・最初の1週間無料"
+            "value" : "%@・最初の2週間無料"
           }
         }
       }
@@ -4316,13 +4316,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Create the following auto-renewable subscriptions in App Store Connect and set a 1-week free trial for each."
+            "value" : "Create the following auto-renewable subscriptions in App Store Connect and set a 2-week free trial for each."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "App Store Connectで以下の自動更新サブスクリプションを作成し、それぞれに1週間無料トライアルを設定してください。"
+            "value" : "App Store Connectで以下の自動更新サブスクリプションを作成し、それぞれに2週間無料トライアルを設定してください。"
           }
         }
       }
@@ -4972,13 +4972,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Product IDs: %@ / %@. Set the 1-week free trial for both products in App Store Connect."
+            "value" : "Product IDs: %@ / %@. Set the 2-week free trial for both products in App Store Connect."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "商品ID: %@ / %@。1週間無料トライアルはApp Store Connectで両方の商品に設定します。"
+            "value" : "商品ID: %@ / %@。2週間無料トライアルはApp Store Connectで両方の商品に設定します。"
           }
         }
       }
