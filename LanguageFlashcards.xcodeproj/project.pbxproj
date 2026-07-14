@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		1A2B3C4D5E6F700000000001 /* LanguageFlashcards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LanguageFlashcards.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B3C4D5E6F70000000000001 /* LanguageFlashcardsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LanguageFlashcardsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +17,22 @@
 			path = LanguageFlashcards;
 			sourceTree = "<group>";
 		};
+		2B3C4D5E6F70000000000002 /* LanguageFlashcardsTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LanguageFlashcardsTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1A2B3C4D5E6F700000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B3C4D5E6F70000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				1A2B3C4D5E6F700000000002 /* LanguageFlashcards */,
+				2B3C4D5E6F70000000000002 /* LanguageFlashcardsTests */,
 				1A2B3C4D5E6F700000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,11 +55,22 @@
 			isa = PBXGroup;
 			children = (
 				1A2B3C4D5E6F700000000001 /* LanguageFlashcards.app */,
+				2B3C4D5E6F70000000000001 /* LanguageFlashcardsTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXContainerItemProxy section */
+		2B3C4D5E6F70000000000008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A2B3C4D5E6F70000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A2B3C4D5E6F700000000006;
+			remoteInfo = LanguageFlashcards;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXNativeTarget section */
 		1A2B3C4D5E6F700000000006 /* LanguageFlashcards */ = {
@@ -70,6 +95,29 @@
 			productReference = 1A2B3C4D5E6F700000000001 /* LanguageFlashcards.app */;
 			productType = "com.apple.product-type.application";
 		};
+		2B3C4D5E6F70000000000006 /* LanguageFlashcardsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2B3C4D5E6F70000000000007 /* Build configuration list for PBXNativeTarget "LanguageFlashcardsTests" */;
+			buildPhases = (
+				2B3C4D5E6F70000000000004 /* Sources */,
+				2B3C4D5E6F70000000000003 /* Frameworks */,
+				2B3C4D5E6F70000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2B3C4D5E6F70000000000009 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2B3C4D5E6F70000000000002 /* LanguageFlashcardsTests */,
+			);
+			name = LanguageFlashcardsTests;
+			packageProductDependencies = (
+			);
+			productName = LanguageFlashcardsTests;
+			productReference = 2B3C4D5E6F70000000000001 /* LanguageFlashcardsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +130,10 @@
 				TargetAttributes = {
 					1A2B3C4D5E6F700000000006 = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					2B3C4D5E6F70000000000006 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 1A2B3C4D5E6F700000000006;
 					};
 				};
 			};
@@ -101,12 +153,20 @@
 			projectRoot = "";
 			targets = (
 				1A2B3C4D5E6F700000000006 /* LanguageFlashcards */,
+				2B3C4D5E6F70000000000006 /* LanguageFlashcardsTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		1A2B3C4D5E6F700000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B3C4D5E6F70000000000005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -123,7 +183,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2B3C4D5E6F70000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2B3C4D5E6F70000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A2B3C4D5E6F700000000006 /* LanguageFlashcards */;
+			targetProxy = 2B3C4D5E6F70000000000008 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1A2B3C4D5E6F70000000000C /* Debug */ = {
@@ -309,6 +384,40 @@
 			};
 			name = Release;
 		};
+		2B3C4D5E6F7000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UYAG3JDD7G;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kazu1129.LanguageFlashcardsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LanguageFlashcards.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LanguageFlashcards";
+			};
+			name = Debug;
+		};
+		2B3C4D5E6F7000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UYAG3JDD7G;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kazu1129.LanguageFlashcardsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LanguageFlashcards.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LanguageFlashcards";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -326,6 +435,15 @@
 			buildConfigurations = (
 				1A2B3C4D5E6F70000000000E /* Debug */,
 				1A2B3C4D5E6F70000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2B3C4D5E6F70000000000007 /* Build configuration list for PBXNativeTarget "LanguageFlashcardsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B3C4D5E6F7000000000000A /* Debug */,
+				2B3C4D5E6F7000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -21,6 +21,20 @@
                ReferencedContainer = "container:LanguageFlashcards.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "2B3C4D5E6F70000000000006"
+               BuildableName = "LanguageFlashcardsTests.xctest"
+               BlueprintName = "LanguageFlashcardsTests"
+               ReferencedContainer = "container:LanguageFlashcards.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -30,6 +44,16 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "2B3C4D5E6F70000000000006"
+               BuildableName = "LanguageFlashcardsTests.xctest"
+               BlueprintName = "LanguageFlashcardsTests"
+               ReferencedContainer = "container:LanguageFlashcards.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
