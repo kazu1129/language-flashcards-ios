@@ -30,7 +30,7 @@ struct DeckDetailView: View {
                 .disabled(deck.cards.isEmpty)
 
                 NavigationLink {
-                    QuizView()
+                    QuizView(cards: deck.sortedCards)
                 } label: {
                     Label("クイズを始める", systemImage: "questionmark.circle.fill")
                         .font(.headline)
