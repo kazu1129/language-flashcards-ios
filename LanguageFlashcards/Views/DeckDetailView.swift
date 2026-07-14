@@ -29,6 +29,13 @@ struct DeckDetailView: View {
                 }
                 .disabled(deck.cards.isEmpty)
 
+                NavigationLink {
+                    QuizView()
+                } label: {
+                    Label("クイズを始める", systemImage: "questionmark.circle.fill")
+                        .font(.headline)
+                }
+
                 HStack {
                     Label("\(settings.sessionCardCount)枚 / セッション", systemImage: "number.circle")
                     Spacer()
