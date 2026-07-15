@@ -81,4 +81,40 @@ final class QuizSessionTests: XCTestCase {
 
         XCTAssertTrue(session.isFinished)
     }
+
+    func testQuizUsesTheSamePlanAndCountAsFlashcardStudy() {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let cards = (0..<12).map { index in
+            Flashcard(
+                languageOneText: "単語\(index)",
+                languageTwoText: "word\(index)",
+                createdAt: now.addingTimeInterval(Double(index))
+            )
+        }
+        let sessionCardCount = 5
+        let studyPlan = StudyScheduler.plan(
+            cards: cards,
+            count: sessionCardCount,
+            now: now
+        )
+        let quizSession = QuizSession(
+            cards: cards,
+            sessionCardCount: sessionCardCount,
+            now: now
+        )
+
+        XCTAssertEqual(quizSession.totalCount, studyPlan.count)
+        XCTAssertEqual(quizSession.queue.map(\.id), studyPlan.map(\.id))
+    }
+
+    func testQuizUsesAllCardsWhenDeckHasFewerThanSessionCount() {
+        let cards = [
+            Flashcard(languageOneText: "猫", languageTwoText: "cat"),
+            Flashcard(languageOneText: "犬", languageTwoText: "dog"),
+        ]
+        let quizSession = QuizSession(cards: cards, sessionCardCount: 10)
+
+        XCTAssertEqual(quizSession.totalCount, 2)
+        XCTAssertEqual(Set(quizSession.queue.map(\.id)), Set(cards.map(\.id)))
+    }
 }

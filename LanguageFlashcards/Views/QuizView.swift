@@ -7,8 +7,11 @@ struct QuizView: View {
     @State private var selectedChoice: String?
     @State private var showsExplanation = false
 
-    init(cards: [Flashcard] = []) {
-        _session = State(initialValue: QuizSession(cards: cards))
+    init(cards: [Flashcard] = [], sessionCardCount: Int = .max) {
+        _session = State(initialValue: QuizSession(
+            cards: cards,
+            sessionCardCount: sessionCardCount
+        ))
     }
 
     var body: some View {
@@ -43,7 +46,7 @@ struct QuizView: View {
                     )
                     .tint(.green)
 
-                    Text("\(session.currentIndex + 1)/\(session.totalCount)")
+                    Text("\(session.currentIndex + 1) / \(session.totalCount)問")
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
