@@ -30,9 +30,15 @@ struct DeckDetailView: View {
                 .disabled(deck.cards.isEmpty)
 
                 NavigationLink {
-                    QuizView(cards: deck.sortedCards)
+                    QuizView(
+                        cards: deck.cards,
+                        sessionCardCount: settings.sessionCardCount
+                    )
                 } label: {
-                    Label("クイズを始める", systemImage: "questionmark.circle.fill")
+                    Label(
+                        "クイズを始める（\(quizQuestionCount)問）",
+                        systemImage: "questionmark.circle.fill"
+                    )
                         .font(.headline)
                 }
 
@@ -227,6 +233,13 @@ struct DeckDetailView: View {
 
     private var totalCardCount: Int {
         allDecks.reduce(0) { $0 + $1.cards.count }
+    }
+
+    private var quizQuestionCount: Int {
+        StudyScheduler.plan(
+            cards: deck.cards,
+            count: settings.sessionCardCount
+        ).count
     }
 
     private var filteredCards: [Flashcard] {

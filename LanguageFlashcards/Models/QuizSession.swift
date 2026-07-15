@@ -44,9 +44,18 @@ struct QuizSession {
     private(set) var currentIndex = 0
     private let questions: [QuizQuestion]
 
-    init(cards: [Flashcard]) {
-        queue = cards
-        questions = cards.map { QuizQuestion(card: $0, cards: cards) }
+    init(
+        cards: [Flashcard],
+        sessionCardCount: Int = .max,
+        now: Date = .now
+    ) {
+        let sessionCards = StudyScheduler.plan(
+            cards: cards,
+            count: sessionCardCount,
+            now: now
+        )
+        queue = sessionCards
+        questions = sessionCards.map { QuizQuestion(card: $0, cards: cards) }
     }
 
     var currentCard: Flashcard? {
