@@ -1,6 +1,8 @@
+import SwiftData
 import SwiftUI
 
 struct QuizView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var session: QuizSession
     @State private var selectedChoice: String?
     @State private var showsExplanation = false
@@ -73,8 +75,7 @@ struct QuizView: View {
         let state = choiceState(for: choice, question: question)
 
         return Button {
-            guard selectedChoice == nil else { return }
-            selectedChoice = choice
+            selectChoice(choice, question: question)
         } label: {
             VStack(spacing: 8) {
                 Text(choice)
@@ -100,6 +101,20 @@ struct QuizView: View {
         .buttonStyle(.plain)
         .allowsHitTesting(selectedChoice == nil)
         .accessibilityValue(state.status?.text ?? "未回答")
+    }
+
+    private func selectChoice(_ choice: String, question: QuizQuestion) {
+        guard selectedChoice == nil else { return }
+        selectedChoice = choice
+
+        let outcome: QuizAnswerOutcome = question.isCorrect(choice)
+            ? .multipleChoiceCorrect
+            : .multipleChoiceIncorrect
+        try? QuizReviewRecorder.record(
+            outcome,
+            cardID: question.cardID,
+            in: modelContext
+        )
     }
 
     private func feedbackView(for choice: String, question: QuizQuestion) -> some View {
