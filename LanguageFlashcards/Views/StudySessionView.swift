@@ -15,6 +15,7 @@ struct StudySessionView: View {
     @State private var ratedCardIDs: Set<UUID> = []
     @State private var showRatingReminder = false
     @State private var showingCompletion = false
+    @State private var editingCard: Flashcard?
 
     init(deck: FlashcardDeck, onFinish: @escaping () -> Void = {}) {
         self._deck = Bindable(deck)
@@ -114,6 +115,25 @@ struct StudySessionView: View {
         }
         .navigationTitle(deck.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let card = currentCard, !showingCompletion {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        speech.stop()
+                        editingCard = card
+                    } label: {
+                        Label("このカードを編集", systemImage: "pencil")
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityLabel("このカードを編集")
+                }
+            }
+        }
+        .sheet(item: $editingCard) { card in
+            NavigationStack {
+                CardEditorView(deck: deck, card: card, totalCardCount: deck.cards.count)
+            }
+        }
         .onAppear {
             if sessionCards.isEmpty {
                 sessionCards = StudyScheduler.plan(cards: deck.cards, count: settings.sessionCardCount)

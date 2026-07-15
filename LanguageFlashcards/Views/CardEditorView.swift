@@ -125,11 +125,16 @@ struct CardEditorView: View {
             return
         }
 
+        let savedAt = Date.now
         if let card {
-            card.languageOneText = cleanedLanguageOne
-            card.languageTwoText = cleanedLanguageTwo
-            card.meanings = cleanedMeanings
-            card.updatedAt = .now
+            CardEditorSaveOperation.updateExistingCard(
+                card,
+                in: deck,
+                languageOneText: cleanedLanguageOne,
+                languageTwoText: cleanedLanguageTwo,
+                meanings: cleanedMeanings,
+                savedAt: savedAt
+            )
         } else {
             guard settings.canAddCards(totalCardCount: totalCardCount, adding: 1) else {
                 showingPremiumUpgrade = true
@@ -141,10 +146,27 @@ struct CardEditorView: View {
                 meanings: cleanedMeanings
             )
             deck.cards.append(newCard)
+            deck.updatedAt = savedAt
         }
 
-        deck.updatedAt = .now
         try? modelContext.save()
         dismiss()
+    }
+}
+
+enum CardEditorSaveOperation {
+    static func updateExistingCard(
+        _ card: Flashcard,
+        in deck: FlashcardDeck,
+        languageOneText: String,
+        languageTwoText: String,
+        meanings: [MeaningEntry],
+        savedAt: Date = .now
+    ) {
+        card.languageOneText = languageOneText
+        card.languageTwoText = languageTwoText
+        card.meanings = meanings
+        card.updatedAt = savedAt
+        deck.updatedAt = savedAt
     }
 }
