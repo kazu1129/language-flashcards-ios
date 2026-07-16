@@ -22,48 +22,92 @@ final class QuizS1SmokeTests: XCTestCase {
         XCTAssertNotNil(host.view)
     }
 
-    func testSettingsLinkPresentsSheet() {
-        // 狙い: 「枚数を変更」導線が設定シートの提示状態を確実にONにすることを固定する。
-        var state = QuizFormatSelectionState()
+    func testDeckDetailSettingsLinkPresentsSheet() {
+        // 狙い: デッキ詳細の新しい「枚数を変更」導線が設定シートの提示状態を確実にONにする。
+        var state = DeckSessionSettingsState()
 
-        state.presentSettings()
+        state.present()
 
-        XCTAssertTrue(state.isSettingsPresented)
+        XCTAssertTrue(state.isPresented)
     }
 
-    func testSettingsDismissReturnsToUnselectedFormatState() {
-        // 狙い: シートを閉じた後も形式未選択の元画面へ戻れる動線要件を保証する。
-        var state = QuizFormatSelectionState()
-        state.presentSettings()
+    func testSettingsDismissReturnsToDeckDetail() {
+        // 狙い: シートを閉じると提示状態がOFFになり、元のデッキ詳細へ戻れる動線要件を保証する。
+        var state = DeckSessionSettingsState()
+        state.present()
 
-        state.settingsDidDismiss()
+        state.didDismiss()
 
-        XCTAssertFalse(state.isSettingsPresented)
-        XCTAssertNil(state.selectedQuestionType)
+        XCTAssertFalse(state.isPresented)
     }
 
-    func testSessionCountSummaryUsesUpdatedSharedSetting() throws {
-        // 狙い: 既存AppSettingsの変更がシート終了後の案内文へ即時反映されることを保証する。
+    func testSessionCountUpdatesDeckSummaryAndQuizButton() throws {
+        // 狙い: 共通設定の変更が「N枚/セッション」と「クイズを始める（N問）」へ一貫して即時反映される。
         let suiteName = "QuizS1SmokeTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(defaults: defaults)
-        XCTAssertEqual(
-            QuizFormatSelectionState.sessionSummary(
-                sessionCardCount: settings.sessionCardCount,
-                displaySide: settings.displaySide
-            ),
-            "設定 10枚/セッション（第1言語から表示）"
-        )
+        let cards = (0..<30).map {
+            Flashcard(languageOneText: "単語\($0)", languageTwoText: "word\($0)")
+        }
 
         settings.sessionCardCount = 24
+        let questionCount = DeckSessionSettingsState.quizQuestionCount(
+            cards: cards,
+            sessionCardCount: settings.sessionCardCount
+        )
 
         XCTAssertEqual(
-            QuizFormatSelectionState.sessionSummary(
-                sessionCardCount: settings.sessionCardCount,
-                displaySide: settings.displaySide
+            DeckSessionSettingsState.sessionCountText(settings.sessionCardCount),
+            "24枚 / セッション"
+        )
+        XCTAssertEqual(questionCount, 24)
+        XCTAssertEqual(
+            DeckSessionSettingsState.quizStartText(questionCount: questionCount),
+            "クイズを始める（24問）"
+        )
+    }
+
+    func testQuizFormatSelectionHasNoSettingsShortcutAndQuestionTypesStillWork() throws {
+        // 狙い: 設定導線の移設漏れを防ぎ、QZ-03として4択・同義語のS5'出題が従来どおり動くことを守る。
+        let suiteName = "QuizS1SmokeTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: defaults)
+        let cards = [
+            Flashcard(
+                languageOneText: "fast",
+                languageTwoText: "速い",
+                meanings: [MeaningEntry(meaning: "速い", synonyms: "quick")]
             ),
-            "設定 24枚/セッション（第1言語から表示）"
+            Flashcard(
+                languageOneText: "slow",
+                languageTwoText: "遅い",
+                meanings: [MeaningEntry(meaning: "遅い", synonyms: "sluggish")]
+            ),
+        ]
+        let host = UIHostingController(
+            rootView: NavigationStack { QuizView(cards: cards) }
+                .environmentObject(settings)
+        )
+        host.loadViewIfNeeded()
+        host.view.layoutIfNeeded()
+
+        let fourChoiceSession = QuizSession(cards: cards, questionType: .fourChoice)
+        let synonymSession = QuizSession(cards: cards, questionType: .synonym)
+
+        XCTAssertFalse(
+            containsAccessibilityIdentifier(
+                "quiz-session-count-settings-button",
+                in: host.view
+            )
+        )
+        XCTAssertEqual(fourChoiceSession.currentQuestion?.type, .fourChoice)
+        XCTAssertEqual(synonymSession.currentQuestion?.type, .synonym)
+        XCTAssertTrue(
+            synonymSession.currentQuestion?.choices.contains(
+                synonymSession.currentQuestion?.correctAnswer ?? ""
+            ) == true
         )
     }
 
@@ -144,5 +188,11 @@ final class QuizS1SmokeTests: XCTestCase {
         XCTAssertEqual(deck.cards.count, 1)
         XCTAssertEqual(deck.cards.first?.languageOneText, "猫")
         XCTAssertEqual(deck.cards.first?.languageTwoText, "cat")
+    }
+
+    private func containsAccessibilityIdentifier(_ identifier: String, in view: UIView) -> Bool {
+        view.accessibilityIdentifier == identifier || view.subviews.contains {
+            containsAccessibilityIdentifier(identifier, in: $0)
+        }
     }
 }

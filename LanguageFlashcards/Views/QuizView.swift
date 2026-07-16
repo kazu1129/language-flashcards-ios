@@ -2,16 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct QuizFormatSelectionState {
-    var isSettingsPresented = false
     private(set) var selectedQuestionType: QuestionType?
-
-    mutating func presentSettings() {
-        isSettingsPresented = true
-    }
-
-    mutating func settingsDidDismiss() {
-        isSettingsPresented = false
-    }
 
     mutating func select(_ questionType: QuestionType) {
         selectedQuestionType = questionType
@@ -19,13 +10,6 @@ struct QuizFormatSelectionState {
 
     mutating func resetSelection() {
         selectedQuestionType = nil
-    }
-
-    static func sessionSummary(
-        sessionCardCount: Int,
-        displaySide: CardSidePreference
-    ) -> String {
-        "設定 \(sessionCardCount)枚/セッション（\(displaySide.title)から表示）"
     }
 }
 
@@ -58,15 +42,6 @@ struct QuizView: View {
         }
         .navigationTitle("クイズ")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(
-            isPresented: $formatSelectionState.isSettingsPresented,
-            onDismiss: { formatSelectionState.settingsDidDismiss() }
-        ) {
-            SettingsView(
-                initialScrollTarget: .sessionCardCount,
-                showsDismissButton: true
-            )
-        }
     }
 
     private var formatSelectionView: some View {
@@ -77,41 +52,12 @@ struct QuizView: View {
                 Text("このセットで使う形式を選んでください。")
                     .foregroundStyle(.secondary)
 
-                sessionSettingsRow
-
                 ForEach(QuestionType.allCases) { type in
                     formatButton(for: type)
                 }
             }
             .padding()
         }
-    }
-
-    private var sessionSettingsRow: some View {
-        HStack(spacing: 12) {
-            Label(
-                QuizFormatSelectionState.sessionSummary(
-                    sessionCardCount: settings.sessionCardCount,
-                    displaySide: settings.displaySide
-                ),
-                systemImage: "number.circle"
-            )
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-
-            Spacer(minLength: 8)
-
-            Button {
-                formatSelectionState.presentSettings()
-            } label: {
-                Label("枚数を変更", systemImage: "gearshape")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .accessibilityIdentifier("quiz-session-count-settings-button")
-        }
-        .padding()
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func formatButton(for type: QuestionType) -> some View {
