@@ -1,7 +1,12 @@
 import SwiftData
 import SwiftUI
 
+enum SettingsScrollTarget: Hashable {
+    case sessionCardCount
+}
+
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var authManager: AuthManager
@@ -11,9 +16,20 @@ struct SettingsView: View {
     @State private var showingPremiumUpgrade = false
     @State private var showingLogoutConfirmation = false
     @State private var showingDeleteAllConfirmation = false
+    private let initialScrollTarget: SettingsScrollTarget?
+    private let showsDismissButton: Bool
+
+    init(
+        initialScrollTarget: SettingsScrollTarget? = nil,
+        showsDismissButton: Bool = false
+    ) {
+        self.initialScrollTarget = initialScrollTarget
+        self.showsDismissButton = showsDismissButton
+    }
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 Section("アカウント") {
                     LabeledContent("メールアドレス", value: authManager.email.isEmpty ? "未ログイン" : authManager.email)
@@ -80,6 +96,8 @@ struct SettingsView: View {
                     Stepper(value: $settings.sessionCardCount, in: 1...100) {
                         Text("1セッション \(settings.sessionCardCount)枚")
                     }
+                    .id(SettingsScrollTarget.sessionCardCount)
+                    .accessibilityIdentifier("settings-session-card-count-stepper")
                 }
 
                 Section("キャラクター") {
@@ -160,6 +178,15 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("設定")
+            .toolbar {
+                if showsDismissButton {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完了") {
+                            dismiss()
+                        }
+                    }
+                }
+            }
             .alert("ログアウトしますか？", isPresented: $showingLogoutConfirmation) {
                 Button("ログアウト", role: .destructive) {
                     Task { await authManager.signOut(settings: settings) }
@@ -178,6 +205,14 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingPremiumUpgrade) {
                 PremiumUpgradeView()
+            }
+            .task(id: initialScrollTarget) {
+                guard let initialScrollTarget else { return }
+                await Task.yield()
+                withAnimation {
+                    proxy.scrollTo(initialScrollTarget, anchor: .center)
+                }
+            }
             }
         }
     }

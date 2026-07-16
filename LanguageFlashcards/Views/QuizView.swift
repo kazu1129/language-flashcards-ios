@@ -1,18 +1,46 @@
 import SwiftData
 import SwiftUI
 
+struct QuizFormatSelectionState {
+    var isSettingsPresented = false
+    private(set) var selectedQuestionType: QuestionType?
+
+    mutating func presentSettings() {
+        isSettingsPresented = true
+    }
+
+    mutating func settingsDidDismiss() {
+        isSettingsPresented = false
+    }
+
+    mutating func select(_ questionType: QuestionType) {
+        selectedQuestionType = questionType
+    }
+
+    mutating func resetSelection() {
+        selectedQuestionType = nil
+    }
+
+    static func sessionSummary(
+        sessionCardCount: Int,
+        displaySide: CardSidePreference
+    ) -> String {
+        "設定 \(sessionCardCount)枚/セッション（\(displaySide.title)から表示）"
+    }
+}
+
 struct QuizView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var settings: AppSettings
     private let cards: [Flashcard]
-    private let sessionCardCount: Int
 
     @State private var session: QuizSession?
     @State private var selectedChoice: String?
     @State private var showsExplanation = false
+    @State private var formatSelectionState = QuizFormatSelectionState()
 
-    init(cards: [Flashcard] = [], sessionCardCount: Int = .max) {
+    init(cards: [Flashcard] = []) {
         self.cards = cards
-        self.sessionCardCount = sessionCardCount
         _session = State(initialValue: nil)
     }
 
@@ -30,6 +58,15 @@ struct QuizView: View {
         }
         .navigationTitle("クイズ")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(
+            isPresented: $formatSelectionState.isSettingsPresented,
+            onDismiss: { formatSelectionState.settingsDidDismiss() }
+        ) {
+            SettingsView(
+                initialScrollTarget: .sessionCardCount,
+                showsDismissButton: true
+            )
+        }
     }
 
     private var formatSelectionView: some View {
@@ -40,12 +77,41 @@ struct QuizView: View {
                 Text("このセットで使う形式を選んでください。")
                     .foregroundStyle(.secondary)
 
+                sessionSettingsRow
+
                 ForEach(QuestionType.allCases) { type in
                     formatButton(for: type)
                 }
             }
             .padding()
         }
+    }
+
+    private var sessionSettingsRow: some View {
+        HStack(spacing: 12) {
+            Label(
+                QuizFormatSelectionState.sessionSummary(
+                    sessionCardCount: settings.sessionCardCount,
+                    displaySide: settings.displaySide
+                ),
+                systemImage: "number.circle"
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+
+            Spacer(minLength: 8)
+
+            Button {
+                formatSelectionState.presentSettings()
+            } label: {
+                Label("枚数を変更", systemImage: "gearshape")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .accessibilityIdentifier("quiz-session-count-settings-button")
+        }
+        .padding()
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func formatButton(for type: QuestionType) -> some View {
@@ -228,6 +294,7 @@ struct QuizView: View {
             )
             Button("次のセットの形式を選ぶ") {
                 session = nil
+                formatSelectionState.resetSelection()
                 selectedChoice = nil
                 showsExplanation = false
             }
@@ -237,10 +304,11 @@ struct QuizView: View {
     }
 
     private func startSession(with questionType: QuestionType) {
+        formatSelectionState.select(questionType)
         session = QuizSession(
             cards: cards,
             questionType: questionType,
-            sessionCardCount: sessionCardCount
+            sessionCardCount: settings.sessionCardCount
         )
         selectedChoice = nil
         showsExplanation = false
