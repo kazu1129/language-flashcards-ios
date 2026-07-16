@@ -1,42 +1,170 @@
 import SwiftData
 import SwiftUI
 
+struct QuizFormatSelectionState {
+    var isSettingsPresented = false
+    private(set) var selectedQuestionType: QuestionType?
+
+    mutating func presentSettings() {
+        isSettingsPresented = true
+    }
+
+    mutating func settingsDidDismiss() {
+        isSettingsPresented = false
+    }
+
+    mutating func select(_ questionType: QuestionType) {
+        selectedQuestionType = questionType
+    }
+
+    mutating func resetSelection() {
+        selectedQuestionType = nil
+    }
+
+    static func sessionSummary(
+        sessionCardCount: Int,
+        displaySide: CardSidePreference
+    ) -> String {
+        "設定 \(sessionCardCount)枚/セッション（\(displaySide.title)から表示）"
+    }
+}
+
 struct QuizView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var session: QuizSession
+    @EnvironmentObject private var settings: AppSettings
+    private let cards: [Flashcard]
+
+    @State private var session: QuizSession?
     @State private var selectedChoice: String?
     @State private var showsExplanation = false
+    @State private var formatSelectionState = QuizFormatSelectionState()
 
-    init(cards: [Flashcard] = [], sessionCardCount: Int = .max) {
-        _session = State(initialValue: QuizSession(
-            cards: cards,
-            sessionCardCount: sessionCardCount
-        ))
+    init(cards: [Flashcard] = []) {
+        self.cards = cards
+        _session = State(initialValue: nil)
     }
 
     var body: some View {
         Group {
-            if let question = session.currentQuestion {
-                questionView(question)
-            } else if session.totalCount == 0 {
-                ContentUnavailableView(
-                    "出題できる単語がありません",
-                    systemImage: "rectangle.stack.badge.minus",
-                    description: Text("デッキに単語を追加してから始めてください。")
-                )
+            if let session {
+                if let question = session.currentQuestion {
+                    questionView(question, session: session)
+                } else {
+                    completionView(totalCount: session.totalCount)
+                }
             } else {
-                ContentUnavailableView(
-                    "クイズ終了",
-                    systemImage: "checkmark.circle",
-                    description: Text("\(session.totalCount)問を最後まで進めました。")
-                )
+                formatSelectionView
             }
         }
         .navigationTitle("クイズ")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(
+            isPresented: $formatSelectionState.isSettingsPresented,
+            onDismiss: { formatSelectionState.settingsDidDismiss() }
+        ) {
+            SettingsView(
+                initialScrollTarget: .sessionCardCount,
+                showsDismissButton: true
+            )
+        }
     }
 
-    private func questionView(_ question: QuizQuestion) -> some View {
+    private var formatSelectionView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("出題形式を選ぶ")
+                    .font(.title.bold())
+                Text("このセットで使う形式を選んでください。")
+                    .foregroundStyle(.secondary)
+
+                sessionSettingsRow
+
+                ForEach(QuestionType.allCases) { type in
+                    formatButton(for: type)
+                }
+            }
+            .padding()
+        }
+    }
+
+    private var sessionSettingsRow: some View {
+        HStack(spacing: 12) {
+            Label(
+                QuizFormatSelectionState.sessionSummary(
+                    sessionCardCount: settings.sessionCardCount,
+                    displaySide: settings.displaySide
+                ),
+                systemImage: "number.circle"
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+
+            Spacer(minLength: 8)
+
+            Button {
+                formatSelectionState.presentSettings()
+            } label: {
+                Label("枚数を変更", systemImage: "gearshape")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .accessibilityIdentifier("quiz-session-count-settings-button")
+        }
+        .padding()
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func formatButton(for type: QuestionType) -> some View {
+        let isAvailable = type.isAvailable(in: cards)
+        let unavailableReason = type == .synonym
+            ? "同義語が登録されていません"
+            : "出題できる単語がありません"
+
+        return Button {
+            startSession(with: type)
+        } label: {
+            HStack(spacing: 16) {
+                Image(systemName: type.systemImage)
+                    .font(.title2)
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(type.title)
+                            .font(.headline)
+                        if !type.isImplemented {
+                            Text("準備中")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(.secondary.opacity(0.15), in: Capsule())
+                        }
+                    }
+                    Text(
+                        type.isImplemented
+                            ? (isAvailable ? type.description : unavailableReason)
+                            : type.description
+                    )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: isAvailable ? "chevron.right" : "lock.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.secondary.opacity(0.3))
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
+        .opacity(isAvailable ? 1 : 0.55)
+        .accessibilityValue(type.isImplemented ? (isAvailable ? "利用可能" : unavailableReason) : "準備中")
+    }
+
+    private func questionView(_ question: QuizQuestion, session: QuizSession) -> some View {
         ScrollView {
             VStack(spacing: 24) {
                 HStack(spacing: 12) {
@@ -51,7 +179,7 @@ struct QuizView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text("Q. “\(question.prompt)” の意味は？")
+                Text(questionText(for: question))
                     .font(.title.bold())
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -110,10 +238,11 @@ struct QuizView: View {
         guard selectedChoice == nil else { return }
         selectedChoice = choice
 
-        let outcome: QuizAnswerOutcome = question.isCorrect(choice)
-            ? .multipleChoiceCorrect
-            : .multipleChoiceIncorrect
-        try? QuizReviewRecorder.record(
+        guard let outcome = QuizAnswerOutcome(
+            questionType: question.type,
+            isCorrect: question.isCorrect(choice)
+        ) else { return }
+        _ = try? QuizReviewRecorder.record(
             outcome,
             cardID: question.cardID,
             in: modelContext
@@ -138,13 +267,13 @@ struct QuizView: View {
             }
 
             DisclosureGroup("なぜ？", isExpanded: $showsExplanation) {
-                Text("「\(question.prompt)」は「\(question.correctAnswer)」という意味です。")
+                Text(explanationText(for: question))
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
             }
 
             Button("続ける") {
-                session.advance()
+                session?.advance()
                 selectedChoice = nil
                 showsExplanation = false
             }
@@ -154,6 +283,54 @@ struct QuizView: View {
         .padding()
         .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .contain)
+    }
+
+    private func completionView(totalCount: Int) -> some View {
+        VStack(spacing: 20) {
+            ContentUnavailableView(
+                "クイズ終了",
+                systemImage: "checkmark.circle",
+                description: Text("\(totalCount)問を最後まで進めました。")
+            )
+            Button("次のセットの形式を選ぶ") {
+                session = nil
+                formatSelectionState.resetSelection()
+                selectedChoice = nil
+                showsExplanation = false
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+    }
+
+    private func startSession(with questionType: QuestionType) {
+        formatSelectionState.select(questionType)
+        session = QuizSession(
+            cards: cards,
+            questionType: questionType,
+            sessionCardCount: settings.sessionCardCount
+        )
+        selectedChoice = nil
+        showsExplanation = false
+    }
+
+    private func questionText(for question: QuizQuestion) -> String {
+        switch question.type {
+        case .fourChoice: "Q. “\(question.prompt)” の意味は？"
+        case .synonym: "Q. “\(question.prompt)” の同義語は？"
+        case .textInput, .clozeExample: ""
+        }
+    }
+
+    private func explanationText(for question: QuizQuestion) -> String {
+        switch question.type {
+        case .fourChoice:
+            "「\(question.prompt)」は「\(question.correctAnswer)」という意味です。"
+        case .synonym:
+            "「\(question.correctAnswer)」は「\(question.prompt)」の同義語です。"
+        case .textInput, .clozeExample:
+            ""
+        }
     }
 
     private func choiceState(for choice: String, question: QuizQuestion) -> ChoiceState {

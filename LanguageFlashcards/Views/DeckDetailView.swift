@@ -30,10 +30,7 @@ struct DeckDetailView: View {
                 .disabled(deck.cards.isEmpty)
 
                 NavigationLink {
-                    QuizView(
-                        cards: deck.cards,
-                        sessionCardCount: settings.sessionCardCount
-                    )
+                    QuizView(cards: deck.cards)
                 } label: {
                     Label(
                         "クイズを始める（\(quizQuestionCount)問）",
