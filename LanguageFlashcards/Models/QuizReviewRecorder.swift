@@ -4,14 +4,26 @@ import SwiftData
 enum QuizAnswerOutcome {
     case multipleChoiceCorrect
     case multipleChoiceIncorrect
+    case synonymCorrect
+    case synonymIncorrect
+
+    init?(questionType: QuestionType, isCorrect: Bool) {
+        switch (questionType, isCorrect) {
+        case (.fourChoice, true): self = .multipleChoiceCorrect
+        case (.fourChoice, false): self = .multipleChoiceIncorrect
+        case (.synonym, true): self = .synonymCorrect
+        case (.synonym, false): self = .synonymIncorrect
+        case (.textInput, _), (.clozeExample, _): return nil
+        }
+    }
 }
 
 enum QuizReviewRecorder {
     static func rating(for outcome: QuizAnswerOutcome) -> ReviewRating {
         switch outcome {
-        case .multipleChoiceCorrect:
+        case .multipleChoiceCorrect, .synonymCorrect:
             .unsure
-        case .multipleChoiceIncorrect:
+        case .multipleChoiceIncorrect, .synonymIncorrect:
             .unknown
         }
     }

@@ -1,3 +1,5 @@
+import SwiftData
+import Testing
 import XCTest
 @testable import LanguageFlashcards
 
@@ -116,5 +118,176 @@ final class QuizSessionTests: XCTestCase {
 
         XCTAssertEqual(quizSession.totalCount, 2)
         XCTAssertEqual(Set(quizSession.queue.map(\.id)), Set(cards.map(\.id)))
+    }
+}
+
+@Suite("S5' クイズ形式選択")
+struct QuizFormatSelectionTests {
+    @Test("同義語パーサ: 空・混在区切り・空白・重複・単一要素を正規化する")
+    func synonymParserBoundaries() {
+        #expect(SynonymParser.parse("").isEmpty)
+        #expect(
+            SynonymParser.parse(" fast, quick、rapid・swift;speedy/slapdash\n hasty ")
+                == ["fast", "quick", "rapid", "swift", "speedy", "slapdash", "hasty"]
+        )
+        #expect(SynonymParser.parse(" Same, same、SAME ") == ["Same"])
+        #expect(SynonymParser.parse("solo") == ["solo"])
+    }
+
+    @Test("形式ゲート: 同義語なしは無効、登録済みなら有効になる")
+    func synonymAvailabilityFollowsDeckData() {
+        let withoutSynonyms = [
+            Flashcard(
+                languageOneText: "run",
+                meanings: [MeaningEntry(meaning: "走る", synonyms: "")]
+            ),
+        ]
+        let withSynonyms = [
+            Flashcard(
+                languageOneText: "run",
+                meanings: [MeaningEntry(meaning: "走る", synonyms: "jog")]
+            ),
+        ]
+
+        #expect(!QuestionType.synonym.isAvailable(in: withoutSynonyms))
+        #expect(QuestionType.synonym.isAvailable(in: withSynonyms))
+        #expect(QuestionType.fourChoice.isAvailable(in: withoutSynonyms))
+        #expect(!QuestionType.fourChoice.isAvailable(in: []))
+        #expect(!QuestionType.textInput.isAvailable(in: withSynonyms))
+        #expect(!QuestionType.clozeExample.isAvailable(in: withSynonyms))
+    }
+
+    @Test("選択肢生成: 両形式で正解必含・重複なし・同義語優先と不足時補完を守る")
+    func questionChoicesStayValidAndFallbackSafely() throws {
+        let fourChoiceCards = [
+            Flashcard(languageOneText: "猫", languageTwoText: "cat"),
+            Flashcard(languageOneText: "犬", languageTwoText: "dog"),
+            Flashcard(languageOneText: "鳥", languageTwoText: "bird"),
+            Flashcard(languageOneText: "魚", languageTwoText: "fish"),
+        ]
+        let fourChoice = try #require(QuizQuestion(
+            card: fourChoiceCards[0],
+            cards: fourChoiceCards,
+            type: .fourChoice
+        ))
+        #expect(fourChoice.choices.contains(fourChoice.correctAnswer))
+        #expect(Set(fourChoice.choices).count == fourChoice.choices.count)
+        #expect(fourChoice.choices.count == 4)
+
+        let synonymCards = [
+            synonymCard("fast", synonyms: "quick"),
+            synonymCard("slow", synonyms: "sluggish"),
+            synonymCard("quiet", synonyms: "silent"),
+            synonymCard("small", synonyms: "tiny"),
+        ]
+        let synonymQuestion = try #require(QuizQuestion(
+            card: synonymCards[0],
+            cards: synonymCards,
+            type: .synonym
+        ))
+        #expect(Set(synonymQuestion.choices) == ["quick", "sluggish", "silent", "tiny"])
+        #expect(Set(synonymQuestion.choices).count == synonymQuestion.choices.count)
+
+        let fallbackCards = [
+            synonymCard("fast", synonyms: "quick"),
+            synonymCard("slow"),
+            synonymCard("quiet"),
+            synonymCard("small"),
+        ]
+        let fallbackQuestion = try #require(QuizQuestion(
+            card: fallbackCards[0],
+            cards: fallbackCards,
+            type: .synonym
+        ))
+        #expect(fallbackQuestion.choices.contains("quick"))
+        #expect(fallbackQuestion.choices.count == 4)
+        #expect(Set(fallbackQuestion.choices).count == fallbackQuestion.choices.count)
+    }
+
+    @MainActor
+    @Test("評価変換: 4択・同義語の正解はunsure、誤答はunknownとして保存する")
+    func reviewMappingReachesRegisterReview() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let fourChoiceCorrect = Flashcard(languageOneText: "猫", languageTwoText: "cat")
+        let synonymCorrect = synonymCard("fast", synonyms: "quick")
+        let incorrect = synonymCard("slow", synonyms: "sluggish")
+        context.insert(FlashcardDeck(
+            name: "形式別評価",
+            cards: [fourChoiceCorrect, synonymCorrect, incorrect]
+        ))
+        try context.save()
+
+        #expect(QuizReviewRecorder.rating(for: .multipleChoiceCorrect) == .unsure)
+        #expect(QuizReviewRecorder.rating(for: .synonymCorrect) == .unsure)
+        #expect(QuizReviewRecorder.rating(for: .multipleChoiceIncorrect) == .unknown)
+        #expect(QuizReviewRecorder.rating(for: .synonymIncorrect) == .unknown)
+
+        let firstRecorded = try QuizReviewRecorder.record(
+            .multipleChoiceCorrect,
+            cardID: fourChoiceCorrect.id,
+            in: context
+        )
+        let secondRecorded = try QuizReviewRecorder.record(
+            .synonymCorrect,
+            cardID: synonymCorrect.id,
+            in: context
+        )
+        let thirdRecorded = try QuizReviewRecorder.record(
+            .synonymIncorrect,
+            cardID: incorrect.id,
+            in: context
+        )
+
+        #expect(firstRecorded && secondRecorded && thirdRecorded)
+        #expect(fourChoiceCorrect.lastRating == .unsure)
+        #expect(synonymCorrect.lastRating == .unsure)
+        #expect(incorrect.lastRating == .unknown)
+    }
+
+    @MainActor
+    @Test("極小・削除境界: 同義語1件で進行し、途中削除は履歴保存を安全に中止する")
+    func singleSynonymAndDeletedCardStaySafe() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let card = synonymCard("fast", synonyms: "quick")
+        context.insert(FlashcardDeck(name: "削除境界", cards: [card]))
+        try context.save()
+
+        let session = QuizSession(cards: [card], questionType: .synonym)
+        let question = try #require(session.currentQuestion)
+        #expect(session.totalCount == 1)
+        #expect(question.choices == ["quick"])
+
+        context.delete(card)
+        try context.save()
+
+        let recorded = try QuizReviewRecorder.record(
+            .synonymCorrect,
+            cardID: question.cardID,
+            in: context
+        )
+        #expect(!recorded)
+        #expect(question.prompt == "fast")
+        #expect(try context.fetch(FetchDescriptor<StudyReview>()).isEmpty)
+    }
+
+    private func synonymCard(_ word: String, synonyms: String = "") -> Flashcard {
+        Flashcard(
+            languageOneText: word,
+            languageTwoText: word,
+            meanings: [MeaningEntry(meaning: word, synonyms: synonyms)]
+        )
+    }
+
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            FlashcardDeck.self,
+            Flashcard.self,
+            StudyReview.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
 }
