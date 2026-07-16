@@ -1,6 +1,30 @@
 import SwiftData
 import SwiftUI
 
+struct DeckSessionSettingsState {
+    var isPresented = false
+
+    mutating func present() {
+        isPresented = true
+    }
+
+    mutating func didDismiss() {
+        isPresented = false
+    }
+
+    static func sessionCountText(_ count: Int) -> String {
+        "\(count)枚 / セッション"
+    }
+
+    static func quizStartText(questionCount: Int) -> String {
+        "クイズを始める（\(questionCount)問）"
+    }
+
+    static func quizQuestionCount(cards: [Flashcard], sessionCardCount: Int) -> Int {
+        StudyScheduler.plan(cards: cards, count: sessionCardCount).count
+    }
+}
+
 struct DeckDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
@@ -17,6 +41,7 @@ struct DeckDetailView: View {
     @State private var shareFile: ShareFile?
     @State private var exportError: String?
     @State private var searchText = ""
+    @State private var sessionSettingsState = DeckSessionSettingsState()
 
     var body: some View {
         List {
@@ -33,17 +58,33 @@ struct DeckDetailView: View {
                     QuizView(cards: deck.cards)
                 } label: {
                     Label(
-                        "クイズを始める（\(quizQuestionCount)問）",
+                        DeckSessionSettingsState.quizStartText(questionCount: quizQuestionCount),
                         systemImage: "questionmark.circle.fill"
                     )
                         .font(.headline)
                 }
 
                 HStack {
-                    Label("\(settings.sessionCardCount)枚 / セッション", systemImage: "number.circle")
+                    Label(
+                        DeckSessionSettingsState.sessionCountText(settings.sessionCardCount),
+                        systemImage: "number.circle"
+                    )
                     Spacer()
                     Text(settings.displaySide.title + "から表示")
                         .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Button {
+                        sessionSettingsState.present()
+                    } label: {
+                        Label("枚数を変更", systemImage: "gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("deck-session-count-settings-button")
+
+                    Spacer()
                 }
             }
 
@@ -187,6 +228,15 @@ struct DeckDetailView: View {
                 .disabled(deck.cards.isEmpty)
             }
         }
+        .sheet(
+            isPresented: $sessionSettingsState.isPresented,
+            onDismiss: { sessionSettingsState.didDismiss() }
+        ) {
+            SettingsView(
+                initialScrollTarget: .sessionCardCount,
+                showsDismissButton: true
+            )
+        }
         .sheet(isPresented: $showingDeckEditor) {
             NavigationStack {
                 DeckEditorView(deck: deck)
@@ -233,10 +283,10 @@ struct DeckDetailView: View {
     }
 
     private var quizQuestionCount: Int {
-        StudyScheduler.plan(
+        DeckSessionSettingsState.quizQuestionCount(
             cards: deck.cards,
-            count: settings.sessionCardCount
-        ).count
+            sessionCardCount: settings.sessionCardCount
+        )
     }
 
     private var filteredCards: [Flashcard] {
