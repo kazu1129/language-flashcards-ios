@@ -1,5 +1,18 @@
+import Accessibility
 import SwiftData
 import SwiftUI
+
+enum QuizAccessibilityText {
+    static func spokenQuestion(_ displayedText: String) -> String {
+        displayedText.replacingOccurrences(of: "_____", with: "空欄")
+    }
+
+    static func feedbackAnnouncement(isCorrect: Bool, correctAnswer: String) -> String {
+        isCorrect
+            ? "正解です。"
+            : "大丈夫です。正解は「\(correctAnswer)」です。"
+    }
+}
 
 struct QuizFormatSelectionState {
     private(set) var selectedQuestionType: QuestionType?
@@ -15,6 +28,7 @@ struct QuizFormatSelectionState {
 
 struct QuizView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var settings: AppSettings
     @Query(sort: \StudyReview.reviewedAt, order: .reverse) private var reviews: [StudyReview]
     private let cards: [Flashcard]
@@ -111,7 +125,9 @@ struct QuizView: View {
     }
 
     private func questionView(_ question: QuizQuestion, session: QuizSession) -> some View {
-        ScrollView {
+        let displayedQuestion = questionText(for: question)
+
+        return ScrollView {
             VStack(spacing: 24) {
                 HStack(spacing: 12) {
                     ProgressView(
@@ -125,11 +141,12 @@ struct QuizView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text(questionText(for: question))
+                Text(displayedQuestion)
                     .font(.title.bold())
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
+                    .accessibilityLabel(Text(QuizAccessibilityText.spokenQuestion(displayedQuestion)))
 
                 if let hint = question.hint {
                     Label("ヒント: \(hint)", systemImage: "lightbulb")
@@ -142,7 +159,7 @@ struct QuizView: View {
                     textAnswerView(question)
                 } else {
                     LazyVGrid(
-                        columns: [GridItem(.flexible()), GridItem(.flexible())],
+                        columns: choiceColumns,
                         spacing: 12
                     ) {
                         ForEach(question.choices, id: \.self) { choice in
@@ -170,6 +187,7 @@ struct QuizView: View {
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let status = state.status {
                     Label(status.text, systemImage: status.icon)
@@ -202,6 +220,7 @@ struct QuizView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.done)
                 .disabled(selectedChoice != nil)
+                .accessibilityLabel(question.type == .clozeExample ? "空欄に入る語" : "答え")
                 .onSubmit { submitTextAnswer(for: question) }
 
             Button("回答する") {
@@ -224,10 +243,11 @@ struct QuizView: View {
     private func selectChoice(_ choice: String, question: QuizQuestion) {
         guard selectedChoice == nil else { return }
         selectedChoice = choice
+        let isCorrect = question.isCorrect(choice)
 
         guard let outcome = QuizAnswerOutcome(
             questionType: question.type,
-            isCorrect: question.isCorrect(choice)
+            isCorrect: isCorrect
         ) else { return }
         let reviewResult = try? QuizReviewRecorder.record(
             outcome,
@@ -235,9 +255,15 @@ struct QuizView: View {
             in: modelContext
         )
         session?.recordAnswer(
-            isCorrect: question.isCorrect(choice),
+            isCorrect: isCorrect,
             promoted: reviewResult?.promoted ?? false
         )
+        AccessibilityNotification.Announcement(
+            QuizAccessibilityText.feedbackAnnouncement(
+                isCorrect: isCorrect,
+                correctAnswer: question.correctAnswer
+            )
+        ).post()
     }
 
     private func feedbackView(for choice: String, question: QuizQuestion) -> some View {
@@ -290,11 +316,7 @@ struct QuizView: View {
                     .font(.title.bold())
                     .foregroundStyle(.green)
 
-                HStack(spacing: 12) {
-                    resultMetric(title: "正解", value: "\(result.correctCount) / \(result.totalCount)")
-                    resultMetric(title: "連続", value: "\(streakDays)日")
-                    resultMetric(title: "覚え度UP", value: "\(result.promotedCount)語")
-                }
+                resultMetrics(result: result, streakDays: streakDays)
 
                 if result.incorrectAnswers.isEmpty {
                     Label("全問正解です！", systemImage: "sparkles")
@@ -342,12 +364,40 @@ struct QuizView: View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.headline.monospacedDigit())
+                .fixedSize(horizontal: false, vertical: true)
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, minHeight: 72)
         .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(Text(value))
+    }
+
+    @ViewBuilder
+    private func resultMetrics(result: QuizSessionResult, streakDays: Int) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 12) {
+                resultMetric(title: "正解", value: "\(result.correctCount) / \(result.totalCount)")
+                resultMetric(title: "連続", value: "\(streakDays)日")
+                resultMetric(title: "覚え度UP", value: "\(result.promotedCount)語")
+            }
+        } else {
+            HStack(spacing: 12) {
+                resultMetric(title: "正解", value: "\(result.correctCount) / \(result.totalCount)")
+                resultMetric(title: "連続", value: "\(streakDays)日")
+                resultMetric(title: "覚え度UP", value: "\(result.promotedCount)語")
+            }
+        }
+    }
+
+    private var choiceColumns: [GridItem] {
+        dynamicTypeSize.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.flexible()), GridItem(.flexible())]
     }
 
     private func startSession(with questionType: QuestionType) {

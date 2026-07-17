@@ -682,3 +682,45 @@ struct QuizResultTests {
         return try ModelContainer(for: schema, configurations: [configuration])
     }
 }
+
+@Suite("S9'-a アクセシビリティ")
+struct QuizAccessibilityTests {
+    @Test("実データ構成: 穴埋め表示は維持し、読み上げでは記号を空欄へ置換する")
+    func speaksTheOwnerDeckClozeAsABlank() throws {
+        let card = Flashcard(
+            languageOneText: "共依存の",
+            languageTwoText: "codependent on",
+            meanings: [MeaningEntry(
+                meaning: "共依存の",
+                example: "She is codependent on her boyfriend and can't make any decisions without him."
+            )]
+        )
+        let cloze = try #require(ClozeExampleBuilder.make(for: card))
+        let spokenQuestion = QuizAccessibilityText.spokenQuestion(cloze.prompt)
+
+        #expect(cloze.prompt == "She is _____ her boyfriend and can't make any decisions without him.")
+        #expect(cloze.prompt.contains("_____"))
+        #expect(spokenQuestion == "She is 空欄 her boyfriend and can't make any decisions without him.")
+        #expect(!spokenQuestion.contains("_____"))
+    }
+
+    @Test("置換境界: 非穴埋めは変更せず、複数・文頭・文末の空欄を安全に読む")
+    func spokenQuestionReplacementBoundaries() {
+        let unchangedQuestions = [
+            "Q. “共依存の” の意味は？",
+            "Q. “fast” の同義語は？",
+            "Q. “共依存の” の意味を入力してください",
+        ]
+
+        for question in unchangedQuestions {
+            #expect(QuizAccessibilityText.spokenQuestion(question) == question)
+        }
+        #expect(QuizAccessibilityText.spokenQuestion("_____ starts and ends _____") == "空欄 starts and ends 空欄")
+        #expect(QuizAccessibilityText.spokenQuestion("before _____ and _____ after") == "before 空欄 and 空欄 after")
+        #expect(QuizAccessibilityText.feedbackAnnouncement(isCorrect: true, correctAnswer: "codependent on") == "正解です。")
+        #expect(
+            QuizAccessibilityText.feedbackAnnouncement(isCorrect: false, correctAnswer: "codependent on")
+                == "大丈夫です。正解は「codependent on」です。"
+        )
+    }
+}
