@@ -36,7 +36,7 @@ enum QuestionType: String, CaseIterable, Identifiable {
     }
 
     var isImplemented: Bool {
-        self == .fourChoice || self == .synonym
+        self == .fourChoice || self == .synonym || self == .clozeExample
     }
 
     func isAvailable(in cards: [Flashcard]) -> Bool {
@@ -49,9 +49,58 @@ enum QuestionType: String, CaseIterable, Identifiable {
             cards
         case .synonym:
             cards.filter { !SynonymParser.parse($0.meanings).isEmpty }
-        case .textInput, .clozeExample:
+        case .clozeExample:
+            cards.filter { ClozeExampleBuilder.make(for: $0) != nil }
+        case .textInput:
             []
         }
+    }
+}
+
+struct ClozeExample: Equatable {
+    let prompt: String
+    let answer: String
+    let translation: String?
+}
+
+enum ClozeExampleBuilder {
+    static func make(for card: Flashcard) -> ClozeExample? {
+        let answer = card.languageOneText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !answer.isEmpty else { return nil }
+
+        for meaning in card.meanings {
+            let example = meaning.example.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !example.isEmpty, let prompt = blankFirstOccurrence(of: answer, in: example) else {
+                continue
+            }
+
+            let translation = meaning.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ClozeExample(
+                prompt: prompt,
+                answer: answer,
+                translation: translation.isEmpty ? nil : translation
+            )
+        }
+
+        return nil
+    }
+
+    private static func blankFirstOccurrence(of answer: String, in example: String) -> String? {
+        let escapedAnswer = NSRegularExpression.escapedPattern(for: answer)
+        let pattern = "(?<![\\p{L}\\p{N}_])\(escapedAnswer)(?![\\p{L}\\p{N}_])"
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return nil
+        }
+
+        let searchRange = NSRange(example.startIndex..<example.endIndex, in: example)
+        guard
+            let match = expression.firstMatch(in: example, range: searchRange),
+            let range = Range(match.range, in: example)
+        else {
+            return nil
+        }
+
+        return example.replacingCharacters(in: range, with: "_____")
     }
 }
 
@@ -88,21 +137,24 @@ struct QuizQuestion {
     let prompt: String
     let correctAnswer: String
     let choices: [String]
+    let hint: String?
 
     init?(card: Flashcard, cards: [Flashcard], type: QuestionType = .fourChoice) {
         cardID = card.id
         self.type = type
-        prompt = card.languageOneText
 
         switch type {
         case .fourChoice:
+            prompt = card.languageOneText
             correctAnswer = Self.answerText(for: card)
             let candidates = cards.shuffled()
                 .filter { $0.id != card.id }
                 .map(Self.answerText(for:))
             choices = Self.choices(correctAnswer: correctAnswer, candidates: candidates)
+            hint = nil
 
         case .synonym:
+            prompt = card.languageOneText
             let correctAnswers = SynonymParser.parse(card.meanings)
             guard let answer = correctAnswers.first else { return nil }
             correctAnswer = answer
@@ -119,7 +171,16 @@ struct QuizQuestion {
                 candidates: synonymCandidates + fallbackCandidates,
                 blockedAnswers: blockedAnswers
             )
-        case .textInput, .clozeExample:
+            hint = nil
+
+        case .clozeExample:
+            guard let cloze = ClozeExampleBuilder.make(for: card) else { return nil }
+            prompt = cloze.prompt
+            correctAnswer = cloze.answer
+            choices = []
+            hint = cloze.translation
+
+        case .textInput:
             return nil
         }
     }

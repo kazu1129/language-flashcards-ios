@@ -291,3 +291,110 @@ struct QuizFormatSelectionTests {
         return try ModelContainer(for: schema, configurations: [configuration])
     }
 }
+
+@Suite("S6' 例文穴埋め")
+struct QuizClozeExampleTests {
+    @Test("空欄生成: 大文字小文字を無視し、単語境界を守って最初の1か所だけ置換する")
+    func buildsOnlyTheFirstWholeWordBlank() throws {
+        let card = clozeCard(
+            "cat",
+            example: "A CAT watches another cat near a category.",
+            translation: "猫が別の猫を見ています。"
+        )
+
+        let cloze = try #require(ClozeExampleBuilder.make(for: card))
+
+        #expect(cloze.prompt == "A _____ watches another cat near a category.")
+        #expect(cloze.answer == "cat")
+        #expect(cloze.translation == "猫が別の猫を見ています。")
+        #expect(ClozeExampleBuilder.make(for: clozeCard("cat", example: "A category.")) == nil)
+    }
+
+    @Test("対象抽出: 空例文と見出し語なしを除外し、混在デッキは穴埋め可能カードだけ出題する")
+    func filtersIneligibleCardsAndGatesTheFormat() {
+        let emptyExample = clozeCard("cat", example: "")
+        let missingHeadword = clozeCard("dog", example: "A puppy is running.")
+        let eligible = clozeCard("bird", example: "A bird can fly.")
+
+        #expect(QuestionType.clozeExample.isImplemented)
+        #expect(!QuestionType.textInput.isImplemented)
+        #expect(!QuestionType.clozeExample.isAvailable(in: [emptyExample, missingHeadword]))
+        #expect(QuestionType.clozeExample.isAvailable(in: [emptyExample, missingHeadword, eligible]))
+
+        let session = QuizSession(
+            cards: [emptyExample, missingHeadword, eligible],
+            questionType: .clozeExample,
+            sessionCardCount: 10
+        )
+        #expect(session.totalCount == 1)
+        #expect(session.queue.map(\.id) == [eligible.id])
+    }
+
+    @Test("回答判定: 前後空白と大文字小文字違いを許容し、別語は誤答にする")
+    func judgesTrimmedCaseInsensitiveAnswers() throws {
+        let card = clozeCard("cat", example: "The cat is sleeping.")
+        let question = try #require(QuizQuestion(
+            card: card,
+            cards: [card],
+            type: .clozeExample
+        ))
+
+        #expect(question.isCorrect("  CAT\n"))
+        #expect(!question.isCorrect("dog"))
+    }
+
+    @MainActor
+    @Test("評価変換: 穴埋め正解はperfect、誤答はunknownとして既存記録層から保存する")
+    func recordsClozeRatingsThroughTheSharedRecorder() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let correctCard = clozeCard("cat", example: "The cat is sleeping.")
+        let incorrectCard = clozeCard("dog", example: "The dog is running.")
+        context.insert(FlashcardDeck(name: "穴埋め評価", cards: [correctCard, incorrectCard]))
+        try context.save()
+
+        let correctOutcome = try #require(QuizAnswerOutcome(
+            questionType: .clozeExample,
+            isCorrect: true
+        ))
+        let incorrectOutcome = try #require(QuizAnswerOutcome(
+            questionType: .clozeExample,
+            isCorrect: false
+        ))
+
+        #expect(QuizReviewRecorder.rating(for: correctOutcome) == .perfect)
+        #expect(QuizReviewRecorder.rating(for: incorrectOutcome) == .unknown)
+        #expect(try QuizReviewRecorder.record(correctOutcome, cardID: correctCard.id, in: context))
+        #expect(try QuizReviewRecorder.record(incorrectOutcome, cardID: incorrectCard.id, in: context))
+        #expect(correctCard.lastRating == .perfect)
+        #expect(incorrectCard.lastRating == .unknown)
+        #expect(try context.fetch(FetchDescriptor<StudyReview>()).count == 2)
+    }
+
+    private func clozeCard(
+        _ word: String,
+        example: String,
+        translation: String = ""
+    ) -> Flashcard {
+        Flashcard(
+            languageOneText: word,
+            languageTwoText: word,
+            meanings: [MeaningEntry(
+                meaning: word,
+                example: example,
+                exampleTranslation: translation
+            )]
+        )
+    }
+
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            FlashcardDeck.self,
+            Flashcard.self,
+            StudyReview.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}

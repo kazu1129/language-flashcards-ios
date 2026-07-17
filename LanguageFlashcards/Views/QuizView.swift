@@ -20,6 +20,7 @@ struct QuizView: View {
 
     @State private var session: QuizSession?
     @State private var selectedChoice: String?
+    @State private var textAnswer = ""
     @State private var showsExplanation = false
     @State private var formatSelectionState = QuizFormatSelectionState()
 
@@ -62,9 +63,7 @@ struct QuizView: View {
 
     private func formatButton(for type: QuestionType) -> some View {
         let isAvailable = type.isAvailable(in: cards)
-        let unavailableReason = type == .synonym
-            ? "同義語が登録されていません"
-            : "出題できる単語がありません"
+        let unavailableReason = unavailableReason(for: type)
 
         return Button {
             startSession(with: type)
@@ -131,12 +130,23 @@ struct QuizView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
 
-                LazyVGrid(
-                    columns: [GridItem(.flexible()), GridItem(.flexible())],
-                    spacing: 12
-                ) {
-                    ForEach(question.choices, id: \.self) { choice in
-                        choiceButton(choice, question: question)
+                if let hint = question.hint {
+                    Label("ヒント: \(hint)", systemImage: "lightbulb")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if question.type == .clozeExample {
+                    clozeAnswerView(question)
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.flexible()), GridItem(.flexible())],
+                        spacing: 12
+                    ) {
+                        ForEach(question.choices, id: \.self) { choice in
+                            choiceButton(choice, question: question)
+                        }
                     }
                 }
 
@@ -180,6 +190,33 @@ struct QuizView: View {
         .accessibilityValue(state.status?.text ?? "未回答")
     }
 
+    private func clozeAnswerView(_ question: QuizQuestion) -> some View {
+        VStack(spacing: 12) {
+            TextField("空欄の語を入力", text: $textAnswer)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .disabled(selectedChoice != nil)
+                .onSubmit { submitClozeAnswer(for: question) }
+
+            Button("回答する") {
+                submitClozeAnswer(for: question)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(
+                selectedChoice != nil ||
+                textAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        }
+    }
+
+    private func submitClozeAnswer(for question: QuizQuestion) {
+        let answer = textAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !answer.isEmpty else { return }
+        selectChoice(answer, question: question)
+    }
+
     private func selectChoice(_ choice: String, question: QuizQuestion) {
         guard selectedChoice == nil else { return }
         selectedChoice = choice
@@ -212,15 +249,19 @@ struct QuizView: View {
                     .foregroundStyle(.green)
             }
 
-            DisclosureGroup("なぜ？", isExpanded: $showsExplanation) {
-                Text(explanationText(for: question))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 8)
+            let explanation = explanationText(for: question)
+            if !explanation.isEmpty {
+                DisclosureGroup("なぜ？", isExpanded: $showsExplanation) {
+                    Text(explanation)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                }
             }
 
             Button("続ける") {
                 session?.advance()
                 selectedChoice = nil
+                textAnswer = ""
                 showsExplanation = false
             }
             .buttonStyle(.borderedProminent)
@@ -242,6 +283,7 @@ struct QuizView: View {
                 session = nil
                 formatSelectionState.resetSelection()
                 selectedChoice = nil
+                textAnswer = ""
                 showsExplanation = false
             }
             .buttonStyle(.borderedProminent)
@@ -257,6 +299,7 @@ struct QuizView: View {
             sessionCardCount: settings.sessionCardCount
         )
         selectedChoice = nil
+        textAnswer = ""
         showsExplanation = false
     }
 
@@ -264,7 +307,8 @@ struct QuizView: View {
         switch question.type {
         case .fourChoice: "Q. “\(question.prompt)” の意味は？"
         case .synonym: "Q. “\(question.prompt)” の同義語は？"
-        case .textInput, .clozeExample: ""
+        case .clozeExample: question.prompt
+        case .textInput: ""
         }
     }
 
@@ -276,6 +320,14 @@ struct QuizView: View {
             "「\(question.correctAnswer)」は「\(question.prompt)」の同義語です。"
         case .textInput, .clozeExample:
             ""
+        }
+    }
+
+    private func unavailableReason(for type: QuestionType) -> String {
+        switch type {
+        case .synonym: "同義語が登録されていません"
+        case .clozeExample: "穴埋めできる例文がありません"
+        case .fourChoice, .textInput: "出題できる単語がありません"
         }
     }
 
