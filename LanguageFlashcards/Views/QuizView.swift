@@ -311,7 +311,7 @@ struct QuizView: View {
         case .fourChoice: "Q. “\(question.prompt)” の意味は？"
         case .synonym: "Q. “\(question.prompt)” の同義語は？"
         case .clozeExample: question.prompt
-        case .textInput: "Q. “\(question.prompt)” を入力してください"
+        case .textInput: "Q. “\(question.prompt)” の意味を入力してください"
         }
     }
 
