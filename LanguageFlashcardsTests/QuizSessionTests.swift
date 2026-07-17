@@ -554,14 +554,31 @@ struct QuizResultTests {
     func propagatesPromotedFromTheSharedRecorder() throws {
         let container = try makeContainer()
         let context = container.mainContext
-        let promotedCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let initialPerfectCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let unknownToPerfectCard = Flashcard(languageOneText: "改善した", languageTwoText: "improved")
+        let unsureToPerfectCard = Flashcard(languageOneText: "確信した", languageTwoText: "confident")
         let unknownCard = Flashcard(languageOneText: "独立した", languageTwoText: "independent")
-        context.insert(FlashcardDeck(name: "結果集計", cards: [promotedCard, unknownCard]))
+        _ = unknownToPerfectCard.registerReview(.unknown)
+        _ = unsureToPerfectCard.registerReview(.unsure)
+        context.insert(FlashcardDeck(
+            name: "結果集計",
+            cards: [initialPerfectCard, unknownToPerfectCard, unsureToPerfectCard, unknownCard]
+        ))
         try context.save()
 
-        let promotedResult = try QuizReviewRecorder.record(
+        let initialPerfectResult = try QuizReviewRecorder.record(
             .textInputCorrect,
-            cardID: promotedCard.id,
+            cardID: initialPerfectCard.id,
+            in: context
+        )
+        let unknownToPerfectResult = try QuizReviewRecorder.record(
+            .textInputCorrect,
+            cardID: unknownToPerfectCard.id,
+            in: context
+        )
+        let unsureToPerfectResult = try QuizReviewRecorder.record(
+            .textInputCorrect,
+            cardID: unsureToPerfectCard.id,
             in: context
         )
         let remainedUnknownResult = try QuizReviewRecorder.record(
@@ -569,17 +586,28 @@ struct QuizResultTests {
             cardID: unknownCard.id,
             in: context
         )
-        let promoted = try #require(promotedResult)
+        let initialPerfect = try #require(initialPerfectResult)
+        let unknownToPerfect = try #require(unknownToPerfectResult)
+        let unsureToPerfect = try #require(unsureToPerfectResult)
         let remainedUnknown = try #require(remainedUnknownResult)
 
-        #expect(promoted.promoted)
+        #expect(!initialPerfect.promoted)
+        #expect(unknownToPerfect.promoted)
+        #expect(unsureToPerfect.promoted)
         #expect(!remainedUnknown.promoted)
-        #expect(promotedCard.promotedToPerfectCount == 1)
-        #expect(promotedCard.lastRating == .perfect)
+        #expect(initialPerfectCard.promotedToPerfectCount == 0)
+        #expect(unknownToPerfectCard.promotedToPerfectCount == 1)
+        #expect(unsureToPerfectCard.promotedToPerfectCount == 1)
+        #expect(initialPerfectCard.lastRating == .perfect)
+        #expect(unknownToPerfectCard.lastRating == .perfect)
+        #expect(unsureToPerfectCard.lastRating == .perfect)
         #expect(unknownCard.lastRating == .unknown)
         let reviews = try context.fetch(FetchDescriptor<StudyReview>())
-        #expect(reviews.count == 2)
-        #expect(reviews.first(where: { $0.cardID == promotedCard.id })?.promotedToPerfect == true)
+        #expect(reviews.count == 4)
+        #expect(reviews.first(where: { $0.cardID == initialPerfectCard.id })?.promotedToPerfect == false)
+        #expect(reviews.first(where: { $0.cardID == unknownToPerfectCard.id })?.promotedToPerfect == true)
+        #expect(reviews.first(where: { $0.cardID == unsureToPerfectCard.id })?.promotedToPerfect == true)
+        #expect(reviews.first(where: { $0.cardID == unknownCard.id })?.promotedToPerfect == false)
     }
 
     @Test("弱点再挑戦: 誤答カードだけで同形式を再生成し、全問正解と対象外は安全に縮退する")

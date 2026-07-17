@@ -59,11 +59,7 @@ enum QuizReviewRecorder {
 
         let rating = rating(for: outcome)
         let previousRating = card.lastRating
-        let registeredPromotion = card.registerReview(rating, at: reviewedAt)
-        let promoted = registeredPromotion || (previousRating == nil && rating == .perfect)
-        if promoted && !registeredPromotion {
-            card.promotedToPerfectCount += 1
-        }
+        let promoted = card.registerReview(rating, at: reviewedAt)
         let review = StudyReview(
             deckID: deck.id,
             cardID: card.id,
