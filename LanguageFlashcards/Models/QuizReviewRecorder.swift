@@ -8,6 +8,8 @@ enum QuizAnswerOutcome {
     case synonymIncorrect
     case clozeCorrect
     case clozeIncorrect
+    case textInputCorrect
+    case textInputIncorrect
 
     init?(questionType: QuestionType, isCorrect: Bool) {
         switch (questionType, isCorrect) {
@@ -17,7 +19,8 @@ enum QuizAnswerOutcome {
         case (.synonym, false): self = .synonymIncorrect
         case (.clozeExample, true): self = .clozeCorrect
         case (.clozeExample, false): self = .clozeIncorrect
-        case (.textInput, _): return nil
+        case (.textInput, true): self = .textInputCorrect
+        case (.textInput, false): self = .textInputIncorrect
         }
     }
 }
@@ -27,9 +30,9 @@ enum QuizReviewRecorder {
         switch outcome {
         case .multipleChoiceCorrect, .synonymCorrect:
             .unsure
-        case .clozeCorrect:
+        case .clozeCorrect, .textInputCorrect:
             .perfect
-        case .multipleChoiceIncorrect, .synonymIncorrect, .clozeIncorrect:
+        case .multipleChoiceIncorrect, .synonymIncorrect, .clozeIncorrect, .textInputIncorrect:
             .unknown
         }
     }

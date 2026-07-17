@@ -153,7 +153,7 @@ struct QuizFormatSelectionTests {
         #expect(QuestionType.synonym.isAvailable(in: withSynonyms))
         #expect(QuestionType.fourChoice.isAvailable(in: withoutSynonyms))
         #expect(!QuestionType.fourChoice.isAvailable(in: []))
-        #expect(!QuestionType.textInput.isAvailable(in: withSynonyms))
+        #expect(QuestionType.textInput.isAvailable(in: withSynonyms))
         #expect(!QuestionType.clozeExample.isAvailable(in: withSynonyms))
     }
 
@@ -335,7 +335,7 @@ struct QuizClozeExampleTests {
         let eligible = clozeCard("bird", example: "A bird can fly.")
 
         #expect(QuestionType.clozeExample.isImplemented)
-        #expect(!QuestionType.textInput.isImplemented)
+        #expect(QuestionType.textInput.isImplemented)
         #expect(!QuestionType.clozeExample.isAvailable(in: [emptyExample, missingHeadword]))
         #expect(QuestionType.clozeExample.isAvailable(in: [emptyExample, missingHeadword, eligible]))
 
@@ -405,6 +405,88 @@ struct QuizClozeExampleTests {
                 exampleTranslation: translation
             )]
         )
+    }
+
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            FlashcardDeck.self,
+            Flashcard.self,
+            StudyReview.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}
+
+@Suite("S7' 文字記入")
+struct QuizTextInputTests {
+    @Test("実データ構成: 日本語を提示し、登録済みの英語を手入力の正解にする")
+    func usesTheOwnerDeckLanguageDirection() throws {
+        let card = Flashcard(
+            languageOneText: "共依存の",
+            languageTwoText: "codependent on"
+        )
+        let emptyAnswerCard = Flashcard(languageOneText: " ", languageTwoText: "\n")
+
+        #expect(QuestionType.textInput.isImplemented)
+        #expect(QuestionType.textInput.isAvailable(in: [card]))
+        #expect(!QuestionType.textInput.isAvailable(in: [emptyAnswerCard]))
+
+        let session = QuizSession(cards: [emptyAnswerCard, card], questionType: .textInput)
+        let question = try #require(session.currentQuestion)
+
+        #expect(session.totalCount == 1)
+        #expect(question.prompt == "共依存の")
+        #expect(question.correctAnswer == "codependent on")
+        #expect(question.choices.isEmpty)
+        #expect(question.hint == nil)
+        #expect(question.isCorrect("codependent on"))
+    }
+
+    @Test("表記ゆれ境界: 大文字小文字と連続空白は許容し、空白欠落と別語は誤答にする")
+    func normalizesCaseAndRepeatedWordSpacing() throws {
+        let card = Flashcard(
+            languageOneText: "共依存の",
+            languageTwoText: "codependent on"
+        )
+        let question = try #require(QuizQuestion(
+            card: card,
+            cards: [card],
+            type: .textInput
+        ))
+
+        #expect(question.isCorrect("  CODEPENDENT   ON  "))
+        #expect(!question.isCorrect("codependenton"))
+        #expect(!question.isCorrect("dependent on"))
+    }
+
+    @MainActor
+    @Test("評価変換: 手入力の正誤を既存記録層からFSRSと履歴へ保存する")
+    func recordsTextInputRatingsThroughTheSharedRecorder() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let correctCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let incorrectCard = Flashcard(languageOneText: "独立した", languageTwoText: "independent")
+        context.insert(FlashcardDeck(name: "文字記入評価", cards: [correctCard, incorrectCard]))
+        try context.save()
+
+        let correctOutcome = try #require(QuizAnswerOutcome(
+            questionType: .textInput,
+            isCorrect: true
+        ))
+        let incorrectOutcome = try #require(QuizAnswerOutcome(
+            questionType: .textInput,
+            isCorrect: false
+        ))
+
+        #expect(QuizReviewRecorder.rating(for: correctOutcome) == .perfect)
+        #expect(QuizReviewRecorder.rating(for: incorrectOutcome) == .unknown)
+        #expect(try QuizReviewRecorder.record(correctOutcome, cardID: correctCard.id, in: context))
+        #expect(try QuizReviewRecorder.record(incorrectOutcome, cardID: incorrectCard.id, in: context))
+        #expect(correctCard.lastRating == .perfect)
+        #expect(incorrectCard.lastRating == .unknown)
+        #expect(try context.fetch(FetchDescriptor<StudyReview>()).count == 2)
     }
 
     @MainActor

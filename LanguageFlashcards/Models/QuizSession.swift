@@ -36,7 +36,7 @@ enum QuestionType: String, CaseIterable, Identifiable {
     }
 
     var isImplemented: Bool {
-        self == .fourChoice || self == .synonym || self == .clozeExample
+        self == .fourChoice || self == .synonym || self == .textInput || self == .clozeExample
     }
 
     func isAvailable(in cards: [Flashcard]) -> Bool {
@@ -52,7 +52,7 @@ enum QuestionType: String, CaseIterable, Identifiable {
         case .clozeExample:
             cards.filter { ClozeExampleBuilder.make(for: $0) != nil }
         case .textInput:
-            []
+            cards.filter { !QuizQuestion.answerText(for: $0).isEmpty }
         }
     }
 }
@@ -184,7 +184,12 @@ struct QuizQuestion {
             hint = cloze.translation
 
         case .textInput:
-            return nil
+            let answer = Self.answerText(for: card)
+            guard !answer.isEmpty else { return nil }
+            prompt = card.languageOneText
+            correctAnswer = answer
+            choices = []
+            hint = nil
         }
     }
 
@@ -192,9 +197,11 @@ struct QuizQuestion {
         Self.normalized(choice) == Self.normalized(correctAnswer)
     }
 
-    private static func answerText(for card: Flashcard) -> String {
+    fileprivate static func answerText(for card: Flashcard) -> String {
         let answer = card.languageTwoText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return answer.isEmpty ? card.languageOneText : answer
+        return answer.isEmpty
+            ? card.languageOneText.trimmingCharacters(in: .whitespacesAndNewlines)
+            : answer
     }
 
     private static func choices(
@@ -220,7 +227,10 @@ struct QuizQuestion {
     }
 
     private static func normalized(_ answer: String) -> String {
-        answer.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        answer
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+            .localizedLowercase
     }
 }
 

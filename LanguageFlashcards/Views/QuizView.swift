@@ -137,8 +137,8 @@ struct QuizView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if question.type == .clozeExample {
-                    clozeAnswerView(question)
+                if question.choices.isEmpty {
+                    textAnswerView(question)
                 } else {
                     LazyVGrid(
                         columns: [GridItem(.flexible()), GridItem(.flexible())],
@@ -190,18 +190,21 @@ struct QuizView: View {
         .accessibilityValue(state.status?.text ?? "未回答")
     }
 
-    private func clozeAnswerView(_ question: QuizQuestion) -> some View {
+    private func textAnswerView(_ question: QuizQuestion) -> some View {
         VStack(spacing: 12) {
-            TextField("空欄の語を入力", text: $textAnswer)
+            TextField(
+                question.type == .clozeExample ? "空欄の語を入力" : "答えを入力",
+                text: $textAnswer
+            )
                 .textFieldStyle(.roundedBorder)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.done)
                 .disabled(selectedChoice != nil)
-                .onSubmit { submitClozeAnswer(for: question) }
+                .onSubmit { submitTextAnswer(for: question) }
 
             Button("回答する") {
-                submitClozeAnswer(for: question)
+                submitTextAnswer(for: question)
             }
             .buttonStyle(.borderedProminent)
             .disabled(
@@ -211,7 +214,7 @@ struct QuizView: View {
         }
     }
 
-    private func submitClozeAnswer(for question: QuizQuestion) {
+    private func submitTextAnswer(for question: QuizQuestion) {
         let answer = textAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !answer.isEmpty else { return }
         selectChoice(answer, question: question)
@@ -308,7 +311,7 @@ struct QuizView: View {
         case .fourChoice: "Q. “\(question.prompt)” の意味は？"
         case .synonym: "Q. “\(question.prompt)” の同義語は？"
         case .clozeExample: question.prompt
-        case .textInput: ""
+        case .textInput: "Q. “\(question.prompt)” を入力してください"
         }
     }
 
@@ -327,7 +330,8 @@ struct QuizView: View {
         switch type {
         case .synonym: "同義語が登録されていません"
         case .clozeExample: "穴埋めできる例文がありません"
-        case .fourChoice, .textInput: "出題できる単語がありません"
+        case .textInput: "入力する答えが登録されていません"
+        case .fourChoice: "出題できる単語がありません"
         }
     }
 
