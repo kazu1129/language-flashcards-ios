@@ -559,11 +559,6 @@ struct QuizResultTests {
         context.insert(FlashcardDeck(name: "結果集計", cards: [promotedCard, unknownCard]))
         try context.save()
 
-        let initialUnknownResult = try QuizReviewRecorder.record(
-            .textInputIncorrect,
-            cardID: promotedCard.id,
-            in: context
-        )
         let promotedResult = try QuizReviewRecorder.record(
             .textInputCorrect,
             cardID: promotedCard.id,
@@ -574,16 +569,17 @@ struct QuizResultTests {
             cardID: unknownCard.id,
             in: context
         )
-        let initialUnknown = try #require(initialUnknownResult)
         let promoted = try #require(promotedResult)
         let remainedUnknown = try #require(remainedUnknownResult)
 
-        #expect(!initialUnknown.promoted)
         #expect(promoted.promoted)
         #expect(!remainedUnknown.promoted)
+        #expect(promotedCard.promotedToPerfectCount == 1)
         #expect(promotedCard.lastRating == .perfect)
         #expect(unknownCard.lastRating == .unknown)
-        #expect(try context.fetch(FetchDescriptor<StudyReview>()).count == 3)
+        let reviews = try context.fetch(FetchDescriptor<StudyReview>())
+        #expect(reviews.count == 2)
+        #expect(reviews.first(where: { $0.cardID == promotedCard.id })?.promotedToPerfect == true)
     }
 
     @Test("弱点再挑戦: 誤答カードだけで同形式を再生成し、全問正解と対象外は安全に縮退する")
