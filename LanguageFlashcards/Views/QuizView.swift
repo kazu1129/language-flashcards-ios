@@ -16,6 +16,7 @@ struct QuizFormatSelectionState {
 struct QuizView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
+    @Query(sort: \StudyReview.reviewedAt, order: .reverse) private var reviews: [StudyReview]
     private let cards: [Flashcard]
 
     @State private var session: QuizSession?
@@ -35,7 +36,7 @@ struct QuizView: View {
                 if let question = session.currentQuestion {
                     questionView(question, session: session)
                 } else {
-                    completionView(totalCount: session.totalCount)
+                    completionView(session: session)
                 }
             } else {
                 formatSelectionView
@@ -228,10 +229,14 @@ struct QuizView: View {
             questionType: question.type,
             isCorrect: question.isCorrect(choice)
         ) else { return }
-        _ = try? QuizReviewRecorder.record(
+        let reviewResult = try? QuizReviewRecorder.record(
             outcome,
             cardID: question.cardID,
             in: modelContext
+        )
+        session?.recordAnswer(
+            isCorrect: question.isCorrect(choice),
+            promoted: reviewResult?.promoted ?? false
         )
     }
 
@@ -275,23 +280,74 @@ struct QuizView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func completionView(totalCount: Int) -> some View {
-        VStack(spacing: 20) {
-            ContentUnavailableView(
-                "クイズ終了",
-                systemImage: "checkmark.circle",
-                description: Text("\(totalCount)問を最後まで進めました。")
-            )
-            Button("次のセットの形式を選ぶ") {
-                session = nil
-                formatSelectionState.resetSelection()
-                selectedChoice = nil
-                textAnswer = ""
-                showsExplanation = false
+    private func completionView(session completedSession: QuizSession) -> some View {
+        let result = completedSession.result
+        let streakDays = LearningProgress.consecutiveStudyDays(from: reviews)
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Label("クイズ終了", systemImage: "checkmark.circle.fill")
+                    .font(.title.bold())
+                    .foregroundStyle(.green)
+
+                HStack(spacing: 12) {
+                    resultMetric(title: "正解", value: "\(result.correctCount) / \(result.totalCount)")
+                    resultMetric(title: "連続", value: "\(streakDays)日")
+                    resultMetric(title: "覚え度UP", value: "\(result.promotedCount)語")
+                }
+
+                if result.incorrectAnswers.isEmpty {
+                    Label("全問正解です！", systemImage: "sparkles")
+                        .font(.headline)
+                        .foregroundStyle(.green)
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("苦手")
+                            .font(.headline)
+                        ForEach(result.incorrectAnswers) { answer in
+                            Label(answer.cardText, systemImage: "arrow.counterclockwise.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                VStack(spacing: 12) {
+                    if completedSession.retrySession(from: cards) != nil {
+                        Button("間違えた語だけもう一度") {
+                            session = completedSession.retrySession(from: cards)
+                            resetAnswerState()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+
+                    Button("もう1セット") {
+                        startSession(with: completedSession.questionType)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("形式を選び直す") {
+                        session = nil
+                        formatSelectionState.resetSelection()
+                        resetAnswerState()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .padding()
         }
-        .padding()
+    }
+
+    private func resultMetric(title: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.headline.monospacedDigit())
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 72)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func startSession(with questionType: QuestionType) {
@@ -301,6 +357,10 @@ struct QuizView: View {
             questionType: questionType,
             sessionCardCount: settings.sessionCardCount
         )
+        resetAnswerState()
+    }
+
+    private func resetAnswerState() {
         selectedChoice = nil
         textAnswer = ""
         showsExplanation = false

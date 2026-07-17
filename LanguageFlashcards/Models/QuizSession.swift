@@ -136,6 +136,7 @@ enum SynonymParser {
 
 struct QuizQuestion {
     let cardID: UUID
+    let cardText: String
     let type: QuestionType
     let prompt: String
     let correctAnswer: String
@@ -144,6 +145,7 @@ struct QuizQuestion {
 
     init?(card: Flashcard, cards: [Flashcard], type: QuestionType = .fourChoice) {
         cardID = card.id
+        cardText = card.languageOneText
         self.type = type
 
         switch type {
@@ -234,9 +236,36 @@ struct QuizQuestion {
     }
 }
 
+struct QuizSessionAnswer: Equatable, Identifiable {
+    let cardID: UUID
+    let cardText: String
+    let isCorrect: Bool
+    let promoted: Bool
+
+    var id: UUID { cardID }
+}
+
+struct QuizSessionResult: Equatable {
+    let totalCount: Int
+    let answers: [QuizSessionAnswer]
+
+    var correctCount: Int {
+        answers.filter(\.isCorrect).count
+    }
+
+    var promotedCount: Int {
+        answers.filter(\.promoted).count
+    }
+
+    var incorrectAnswers: [QuizSessionAnswer] {
+        answers.filter { !$0.isCorrect }
+    }
+}
+
 struct QuizSession {
     private(set) var queue: [Flashcard]
     private(set) var currentIndex = 0
+    private(set) var answers: [QuizSessionAnswer] = []
     private let questions: [QuizQuestion]
     let questionType: QuestionType
 
@@ -275,6 +304,40 @@ struct QuizSession {
 
     var isFinished: Bool {
         currentIndex >= queue.count
+    }
+
+    var result: QuizSessionResult {
+        QuizSessionResult(totalCount: totalCount, answers: answers)
+    }
+
+    mutating func recordAnswer(isCorrect: Bool, promoted: Bool) {
+        guard
+            let question = currentQuestion,
+            !answers.contains(where: { $0.cardID == question.cardID })
+        else {
+            return
+        }
+
+        answers.append(QuizSessionAnswer(
+            cardID: question.cardID,
+            cardText: question.cardText,
+            isCorrect: isCorrect,
+            promoted: promoted
+        ))
+    }
+
+    func retrySession(from availableCards: [Flashcard], now: Date = .now) -> QuizSession? {
+        let incorrectCardIDs = Set(result.incorrectAnswers.map(\.cardID))
+        guard !incorrectCardIDs.isEmpty else { return nil }
+
+        let retryCards = availableCards.filter { incorrectCardIDs.contains($0.id) }
+        let retrySession = QuizSession(
+            cards: retryCards,
+            questionType: questionType,
+            sessionCardCount: retryCards.count,
+            now: now
+        )
+        return retrySession.totalCount > 0 ? retrySession : nil
     }
 
     mutating func advance() {

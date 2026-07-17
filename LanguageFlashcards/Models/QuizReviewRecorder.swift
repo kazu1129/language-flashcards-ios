@@ -25,6 +25,10 @@ enum QuizAnswerOutcome {
     }
 }
 
+struct QuizReviewResult: Equatable {
+    let promoted: Bool
+}
+
 enum QuizReviewRecorder {
     static func rating(for outcome: QuizAnswerOutcome) -> ReviewRating {
         switch outcome {
@@ -44,14 +48,14 @@ enum QuizReviewRecorder {
         cardID: UUID,
         in modelContext: ModelContext,
         reviewedAt: Date = .now
-    ) throws -> Bool {
+    ) throws -> QuizReviewResult? {
         let cards = try modelContext.fetch(FetchDescriptor<Flashcard>())
-        guard let card = cards.first(where: { $0.id == cardID }) else { return false }
+        guard let card = cards.first(where: { $0.id == cardID }) else { return nil }
 
         let decks = try modelContext.fetch(FetchDescriptor<FlashcardDeck>())
         guard let deck = decks.first(where: { deck in
             deck.cards.contains(where: { $0.id == cardID })
-        }) else { return false }
+        }) else { return nil }
 
         let rating = rating(for: outcome)
         let previousRating = card.lastRating
@@ -70,6 +74,6 @@ enum QuizReviewRecorder {
         modelContext.insert(review)
         deck.updatedAt = reviewedAt
         try modelContext.save()
-        return true
+        return QuizReviewResult(promoted: promoted)
     }
 }

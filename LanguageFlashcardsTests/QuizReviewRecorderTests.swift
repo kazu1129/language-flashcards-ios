@@ -25,7 +25,7 @@ final class QuizReviewRecorderTests: XCTestCase {
         try context.save()
 
         _ = normalStudyCard.registerReview(.unsure, at: reviewedAt)
-        XCTAssertTrue(try QuizReviewRecorder.record(
+        XCTAssertNotNil(try QuizReviewRecorder.record(
             .multipleChoiceCorrect,
             cardID: quizCard.id,
             in: context,
@@ -151,7 +151,7 @@ final class QuizReviewRecorderTests: XCTestCase {
         context.delete(card)
         try context.save()
 
-        XCTAssertFalse(try QuizReviewRecorder.record(
+        XCTAssertNil(try QuizReviewRecorder.record(
             .multipleChoiceCorrect,
             cardID: question.cardID,
             in: context

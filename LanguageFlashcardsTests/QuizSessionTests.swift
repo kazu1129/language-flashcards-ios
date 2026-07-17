@@ -239,7 +239,7 @@ struct QuizFormatSelectionTests {
             in: context
         )
 
-        #expect(firstRecorded && secondRecorded && thirdRecorded)
+        #expect(firstRecorded != nil && secondRecorded != nil && thirdRecorded != nil)
         #expect(fourChoiceCorrect.lastRating == .unsure)
         #expect(synonymCorrect.lastRating == .unsure)
         #expect(incorrect.lastRating == .unknown)
@@ -267,7 +267,7 @@ struct QuizFormatSelectionTests {
             cardID: question.cardID,
             in: context
         )
-        #expect(!recorded)
+        #expect(recorded == nil)
         #expect(question.prompt == "fast")
         #expect(try context.fetch(FetchDescriptor<StudyReview>()).isEmpty)
     }
@@ -384,8 +384,18 @@ struct QuizClozeExampleTests {
 
         #expect(QuizReviewRecorder.rating(for: correctOutcome) == .perfect)
         #expect(QuizReviewRecorder.rating(for: incorrectOutcome) == .unknown)
-        #expect(try QuizReviewRecorder.record(correctOutcome, cardID: correctCard.id, in: context))
-        #expect(try QuizReviewRecorder.record(incorrectOutcome, cardID: incorrectCard.id, in: context))
+        let correctResult = try QuizReviewRecorder.record(
+            correctOutcome,
+            cardID: correctCard.id,
+            in: context
+        )
+        let incorrectResult = try QuizReviewRecorder.record(
+            incorrectOutcome,
+            cardID: incorrectCard.id,
+            in: context
+        )
+        #expect(correctResult != nil)
+        #expect(incorrectResult != nil)
         #expect(correctCard.lastRating == .perfect)
         #expect(incorrectCard.lastRating == .unknown)
         #expect(try context.fetch(FetchDescriptor<StudyReview>()).count == 2)
@@ -482,11 +492,159 @@ struct QuizTextInputTests {
 
         #expect(QuizReviewRecorder.rating(for: correctOutcome) == .perfect)
         #expect(QuizReviewRecorder.rating(for: incorrectOutcome) == .unknown)
-        #expect(try QuizReviewRecorder.record(correctOutcome, cardID: correctCard.id, in: context))
-        #expect(try QuizReviewRecorder.record(incorrectOutcome, cardID: incorrectCard.id, in: context))
+        let correctResult = try QuizReviewRecorder.record(
+            correctOutcome,
+            cardID: correctCard.id,
+            in: context
+        )
+        let incorrectResult = try QuizReviewRecorder.record(
+            incorrectOutcome,
+            cardID: incorrectCard.id,
+            in: context
+        )
+        #expect(correctResult != nil)
+        #expect(incorrectResult != nil)
         #expect(correctCard.lastRating == .perfect)
         #expect(incorrectCard.lastRating == .unknown)
         #expect(try context.fetch(FetchDescriptor<StudyReview>()).count == 2)
+    }
+
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            FlashcardDeck.self,
+            Flashcard.self,
+            StudyReview.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}
+
+@Suite("S8' 結果画面")
+struct QuizResultTests {
+    @Test("実データ構成: 正誤・覚え度UP・苦手語をモデル側で集計する")
+    func aggregatesOwnerDeckLanguageDirection() throws {
+        let cards = [
+            Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on"),
+            Flashcard(languageOneText: "独立した", languageTwoText: "independent"),
+            Flashcard(languageOneText: "協力的な", languageTwoText: "cooperative"),
+        ]
+        var session = QuizSession(cards: cards, questionType: .textInput, sessionCardCount: 10)
+
+        while let question = session.currentQuestion {
+            let isIncorrect = question.cardID == cards[1].id
+            session.recordAnswer(
+                isCorrect: !isIncorrect,
+                promoted: question.cardID == cards[0].id
+            )
+            session.advance()
+        }
+
+        let result = session.result
+        #expect(result.correctCount == 2)
+        #expect(result.totalCount == 3)
+        #expect(result.promotedCount == 1)
+        #expect(result.incorrectAnswers.map(\.cardID) == [cards[1].id])
+        #expect(result.incorrectAnswers.map(\.cardText) == ["独立した"])
+    }
+
+    @MainActor
+    @Test("QZ-22: 記録層からpromotedを返し、perfectへの昇格だけを数えられる")
+    func propagatesPromotedFromTheSharedRecorder() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let promotedCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let unknownCard = Flashcard(languageOneText: "独立した", languageTwoText: "independent")
+        context.insert(FlashcardDeck(name: "結果集計", cards: [promotedCard, unknownCard]))
+        try context.save()
+
+        let initialUnknownResult = try QuizReviewRecorder.record(
+            .textInputIncorrect,
+            cardID: promotedCard.id,
+            in: context
+        )
+        let promotedResult = try QuizReviewRecorder.record(
+            .textInputCorrect,
+            cardID: promotedCard.id,
+            in: context
+        )
+        let remainedUnknownResult = try QuizReviewRecorder.record(
+            .textInputIncorrect,
+            cardID: unknownCard.id,
+            in: context
+        )
+        let initialUnknown = try #require(initialUnknownResult)
+        let promoted = try #require(promotedResult)
+        let remainedUnknown = try #require(remainedUnknownResult)
+
+        #expect(!initialUnknown.promoted)
+        #expect(promoted.promoted)
+        #expect(!remainedUnknown.promoted)
+        #expect(promotedCard.lastRating == .perfect)
+        #expect(unknownCard.lastRating == .unknown)
+        #expect(try context.fetch(FetchDescriptor<StudyReview>()).count == 3)
+    }
+
+    @Test("弱点再挑戦: 誤答カードだけで同形式を再生成し、全問正解と対象外は安全に縮退する")
+    func retriesOnlyEligibleIncorrectCards() throws {
+        let incorrectCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let correctCard = Flashcard(languageOneText: "独立した", languageTwoText: "independent")
+        let cards = [incorrectCard, correctCard]
+        var session = QuizSession(cards: cards, questionType: .textInput, sessionCardCount: 10)
+
+        while let question = session.currentQuestion {
+            session.recordAnswer(isCorrect: question.cardID == correctCard.id, promoted: false)
+            session.advance()
+        }
+
+        let retry = try #require(session.retrySession(from: cards))
+        #expect(retry.questionType == .textInput)
+        #expect(retry.totalCount == 1)
+        #expect(retry.queue.map(\.id) == [incorrectCard.id])
+
+        var allCorrect = QuizSession(cards: cards, questionType: .textInput, sessionCardCount: 10)
+        while allCorrect.currentQuestion != nil {
+            allCorrect.recordAnswer(isCorrect: true, promoted: false)
+            allCorrect.advance()
+        }
+        #expect(allCorrect.retrySession(from: cards) == nil)
+
+        incorrectCard.languageOneText = " "
+        incorrectCard.languageTwoText = " "
+        #expect(session.retrySession(from: cards) == nil)
+    }
+
+    @MainActor
+    @Test("ストリーク: クイズが保存した履歴を既存LearningProgressで連続日数に変換する")
+    func usesExistingLearningProgressForQuizReviews() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let todayCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let yesterdayCard = Flashcard(languageOneText: "独立した", languageTwoText: "independent")
+        context.insert(FlashcardDeck(name: "連続学習", cards: [todayCard, yesterdayCard]))
+        try context.save()
+
+        let calendar = Calendar.current
+        let today = Date.now
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: today))
+        let yesterdayResult = try QuizReviewRecorder.record(
+            .textInputCorrect,
+            cardID: yesterdayCard.id,
+            in: context,
+            reviewedAt: yesterday
+        )
+        let todayResult = try QuizReviewRecorder.record(
+            .textInputCorrect,
+            cardID: todayCard.id,
+            in: context,
+            reviewedAt: today
+        )
+        _ = try #require(yesterdayResult)
+        _ = try #require(todayResult)
+
+        let reviews = try context.fetch(FetchDescriptor<StudyReview>())
+        #expect(LearningProgress.consecutiveStudyDays(from: reviews, calendar: calendar) == 2)
     }
 
     @MainActor
