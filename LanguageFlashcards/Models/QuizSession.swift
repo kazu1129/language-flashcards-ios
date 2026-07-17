@@ -65,21 +65,24 @@ struct ClozeExample: Equatable {
 
 enum ClozeExampleBuilder {
     static func make(for card: Flashcard) -> ClozeExample? {
-        let answer = card.languageOneText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !answer.isEmpty else { return nil }
+        let answerCandidates = [card.languageOneText, card.languageTwoText]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
 
         for meaning in card.meanings {
             let example = meaning.example.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !example.isEmpty, let prompt = blankFirstOccurrence(of: answer, in: example) else {
-                continue
-            }
+            guard !example.isEmpty else { continue }
 
-            let translation = meaning.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
-            return ClozeExample(
-                prompt: prompt,
-                answer: answer,
-                translation: translation.isEmpty ? nil : translation
-            )
+            for answer in answerCandidates {
+                guard let prompt = blankFirstOccurrence(of: answer, in: example) else { continue }
+
+                let translation = meaning.exampleTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
+                return ClozeExample(
+                    prompt: prompt,
+                    answer: answer,
+                    translation: translation.isEmpty ? nil : translation
+                )
+            }
         }
 
         return nil

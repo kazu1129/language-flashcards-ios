@@ -294,6 +294,24 @@ struct QuizFormatSelectionTests {
 
 @Suite("S6' 例文穴埋め")
 struct QuizClozeExampleTests {
+    @Test("言語方向: 第2言語が例文にある場合はその語を空欄と正解にする")
+    func usesTheLanguageThatExistsInTheExample() throws {
+        let card = Flashcard(
+            languageOneText: "共依存の",
+            languageTwoText: "codependent on",
+            meanings: [MeaningEntry(
+                meaning: "共依存の",
+                example: "She is codependent on her boyfriend and can't make any decisions without him."
+            )]
+        )
+
+        let cloze = try #require(ClozeExampleBuilder.make(for: card))
+
+        #expect(QuestionType.clozeExample.isAvailable(in: [card]))
+        #expect(cloze.prompt == "She is _____ her boyfriend and can't make any decisions without him.")
+        #expect(cloze.answer == "codependent on")
+    }
+
     @Test("空欄生成: 大文字小文字を無視し、単語境界を守って最初の1か所だけ置換する")
     func buildsOnlyTheFirstWholeWordBlank() throws {
         let card = clozeCard(
@@ -339,6 +357,8 @@ struct QuizClozeExampleTests {
             type: .clozeExample
         ))
 
+        #expect(question.prompt == "The _____ is sleeping.")
+        #expect(question.correctAnswer == "cat")
         #expect(question.isCorrect("  CAT\n"))
         #expect(!question.isCorrect("dog"))
     }
