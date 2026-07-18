@@ -724,3 +724,108 @@ struct QuizAccessibilityTests {
         )
     }
 }
+
+@Suite("わからない回答")
+struct QuizDontKnowTests {
+    @MainActor
+    @Test("実データ構成: 全形式のわからないは既存変換層でunknownとして保存する")
+    func recordsUnknownForEveryQuestionType() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let cards = (0..<4).map { _ in ownerDeckCard() }
+        context.insert(FlashcardDeck(name: "わからない評価", cards: cards))
+        try context.save()
+
+        let cases: [(QuestionType, Flashcard)] = [
+            (.fourChoice, cards[0]),
+            (.synonym, cards[1]),
+            (.textInput, cards[2]),
+            (.clozeExample, cards[3]),
+        ]
+
+        for (type, card) in cases {
+            #expect(QuizQuestion(card: card, cards: cards, type: type) != nil)
+
+            var answerState = QuizAnswerState.unanswered
+            let didGiveUp = answerState.giveUp()
+            #expect(didGiveUp)
+            let outcome = try #require(QuizAnswerOutcome(questionType: type, isCorrect: false))
+            let recorded = try QuizReviewRecorder.record(outcome, cardID: card.id, in: context)
+
+            #expect(answerState.hasAnswered)
+            #expect(answerState.selectedChoice == nil)
+            #expect(recorded != nil)
+            #expect(card.lastRating == .unknown)
+        }
+
+        let reviews = try context.fetch(FetchDescriptor<StudyReview>())
+        #expect(reviews.count == 4)
+        #expect(reviews.allSatisfy { $0.rating == .unknown })
+    }
+
+    @Test("わからないは不正解として結果集計の苦手語に含まれる")
+    func countsGivingUpAsAnIncorrectAnswer() {
+        let card = ownerDeckCard()
+        var session = QuizSession(cards: [card], questionType: .textInput)
+        var answerState = QuizAnswerState.unanswered
+
+        let didGiveUp = answerState.giveUp()
+        #expect(didGiveUp)
+        session.recordAnswer(isCorrect: false, promoted: false)
+
+        let result = session.result
+        #expect(result.totalCount == 1)
+        #expect(result.correctCount == 0)
+        #expect(result.incorrectAnswers.map(\.cardID) == [card.id])
+        #expect(result.incorrectAnswers.map(\.cardText) == ["共依存の"])
+    }
+
+    @Test("回答済みガード: わからない後は二重回答を受け付けず、次問用にリセットできる")
+    func preventsDoubleSubmissionAfterGivingUp() {
+        var answerState = QuizAnswerState.unanswered
+        var acceptedSubmissionCount = 0
+
+        if answerState.giveUp() {
+            acceptedSubmissionCount += 1
+        }
+        if answerState.select("codependent on") {
+            acceptedSubmissionCount += 1
+        }
+        if answerState.giveUp() {
+            acceptedSubmissionCount += 1
+        }
+
+        #expect(answerState.hasAnswered)
+        #expect(answerState.selectedChoice == nil)
+        #expect(acceptedSubmissionCount == 1)
+
+        answerState.reset()
+        #expect(!answerState.hasAnswered)
+        let didSelectChoice = answerState.select("codependent on")
+        #expect(didSelectChoice)
+        #expect(answerState.selectedChoice == "codependent on")
+    }
+
+    private func ownerDeckCard() -> Flashcard {
+        Flashcard(
+            languageOneText: "共依存の",
+            languageTwoText: "codependent on",
+            meanings: [MeaningEntry(
+                meaning: "共依存の",
+                synonyms: "dependent",
+                example: "She is codependent on her boyfriend and can't make any decisions without him."
+            )]
+        )
+    }
+
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            FlashcardDeck.self,
+            Flashcard.self,
+            StudyReview.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}

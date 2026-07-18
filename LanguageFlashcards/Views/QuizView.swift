@@ -26,6 +26,41 @@ struct QuizFormatSelectionState {
     }
 }
 
+enum QuizAnswerState: Equatable {
+    case unanswered
+    case selected(String)
+    case gaveUp
+
+    var hasAnswered: Bool {
+        self != .unanswered
+    }
+
+    var selectedChoice: String? {
+        guard case let .selected(choice) = self else { return nil }
+        return choice
+    }
+
+    var didGiveUp: Bool {
+        self == .gaveUp
+    }
+
+    mutating func select(_ choice: String) -> Bool {
+        guard !hasAnswered else { return false }
+        self = .selected(choice)
+        return true
+    }
+
+    mutating func giveUp() -> Bool {
+        guard !hasAnswered else { return false }
+        self = .gaveUp
+        return true
+    }
+
+    mutating func reset() {
+        self = .unanswered
+    }
+}
+
 struct QuizView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -34,7 +69,7 @@ struct QuizView: View {
     private let cards: [Flashcard]
 
     @State private var session: QuizSession?
-    @State private var selectedChoice: String?
+    @State private var answerState: QuizAnswerState = .unanswered
     @State private var textAnswer = ""
     @State private var showsExplanation = false
     @State private var formatSelectionState = QuizFormatSelectionState()
@@ -168,8 +203,14 @@ struct QuizView: View {
                     }
                 }
 
-                if let selectedChoice {
-                    feedbackView(for: selectedChoice, question: question)
+                Button("わからない") {
+                    giveUp(question: question)
+                }
+                .buttonStyle(.bordered)
+                .disabled(answerState.hasAnswered)
+
+                if answerState.hasAnswered {
+                    feedbackView(question: question)
                 }
             }
             .padding()
@@ -205,7 +246,7 @@ struct QuizView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .allowsHitTesting(selectedChoice == nil)
+        .allowsHitTesting(!answerState.hasAnswered)
         .accessibilityValue(state.status?.text ?? "未回答")
     }
 
@@ -219,7 +260,7 @@ struct QuizView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.done)
-                .disabled(selectedChoice != nil)
+                .disabled(answerState.hasAnswered)
                 .accessibilityLabel(question.type == .clozeExample ? "空欄に入る語" : "答え")
                 .onSubmit { submitTextAnswer(for: question) }
 
@@ -228,7 +269,7 @@ struct QuizView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(
-                selectedChoice != nil ||
+                answerState.hasAnswered ||
                 textAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
         }
@@ -241,10 +282,16 @@ struct QuizView: View {
     }
 
     private func selectChoice(_ choice: String, question: QuizQuestion) {
-        guard selectedChoice == nil else { return }
-        selectedChoice = choice
-        let isCorrect = question.isCorrect(choice)
+        guard answerState.select(choice) else { return }
+        recordAnswer(isCorrect: question.isCorrect(choice), question: question)
+    }
 
+    private func giveUp(question: QuizQuestion) {
+        guard answerState.giveUp() else { return }
+        recordAnswer(isCorrect: false, question: question)
+    }
+
+    private func recordAnswer(isCorrect: Bool, question: QuizQuestion) {
         guard let outcome = QuizAnswerOutcome(
             questionType: question.type,
             isCorrect: isCorrect
@@ -266,14 +313,19 @@ struct QuizView: View {
         ).post()
     }
 
-    private func feedbackView(for choice: String, question: QuizQuestion) -> some View {
-        let isCorrect = question.isCorrect(choice)
-        let tint: Color = isCorrect ? .green : .red
+    private func feedbackView(question: QuizQuestion) -> some View {
+        let isCorrect = answerState.selectedChoice.map { question.isCorrect($0) } ?? false
+        let didGiveUp = answerState.didGiveUp
+        let tint: Color = isCorrect ? .green : (didGiveUp ? .secondary : .red)
 
         return VStack(alignment: .leading, spacing: 16) {
             Label(
-                isCorrect ? "正解！" : "大丈夫。正解を確認しましょう。",
-                systemImage: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill"
+                isCorrect
+                    ? "正解！"
+                    : (didGiveUp ? "正解を確認しましょう。" : "大丈夫。正解を確認しましょう。"),
+                systemImage: isCorrect
+                    ? "checkmark.circle.fill"
+                    : (didGiveUp ? "questionmark.circle.fill" : "xmark.circle.fill")
             )
             .font(.headline)
             .foregroundStyle(tint)
@@ -294,9 +346,7 @@ struct QuizView: View {
 
             Button("続ける") {
                 session?.advance()
-                selectedChoice = nil
-                textAnswer = ""
-                showsExplanation = false
+                resetAnswerState()
             }
             .buttonStyle(.borderedProminent)
             .frame(maxWidth: .infinity)
@@ -411,7 +461,7 @@ struct QuizView: View {
     }
 
     private func resetAnswerState() {
-        selectedChoice = nil
+        answerState.reset()
         textAnswer = ""
         showsExplanation = false
     }
@@ -446,9 +496,9 @@ struct QuizView: View {
     }
 
     private func choiceState(for choice: String, question: QuizQuestion) -> ChoiceState {
-        guard let selectedChoice else { return .neutral }
+        guard answerState.hasAnswered else { return .neutral }
         if question.isCorrect(choice) { return .correct }
-        if choice == selectedChoice { return .incorrect }
+        if choice == answerState.selectedChoice { return .incorrect }
         return .neutral
     }
 
