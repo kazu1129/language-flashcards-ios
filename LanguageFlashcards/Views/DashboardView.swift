@@ -4,8 +4,11 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject private var settings: AppSettings
+    @Query(sort: \FlashcardDeck.updatedAt, order: .forward) private var decks: [FlashcardDeck]
     @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
     @State private var showingPremiumUpgrade = false
+    @State private var showingAnalyticsQuiz = false
+    @State private var analyticsQuizCards: [Flashcard] = []
     private let calendar = Calendar.current
 
     var body: some View {
@@ -16,6 +19,7 @@ struct DashboardView: View {
                     calendarSection
                     trendSection
                     improvementSection
+                    premiumAnalyticsSection
                     if !settings.isPremium {
                         PremiumHomeCard {
                             showingPremiumUpgrade = true
@@ -28,7 +32,57 @@ struct DashboardView: View {
             .sheet(isPresented: $showingPremiumUpgrade) {
                 PremiumUpgradeView()
             }
+            .sheet(isPresented: $showingAnalyticsQuiz) {
+                NavigationStack {
+                    QuizView(cards: analyticsQuizCards)
+                }
+            }
         }
+    }
+
+    @ViewBuilder
+    private var premiumAnalyticsSection: some View {
+        if settings.isPremium {
+            PremiumAnalyticsView(
+                snapshot: analyticsSnapshot,
+                onReviewWeakCards: {
+                    startAnalyticsQuiz(cardIDs: analyticsSnapshot.weakCards.map(\.cardID))
+                },
+                onReviewForgettingCards: {
+                    startAnalyticsQuiz(cardIDs: analyticsSnapshot.forgettingCards.map(\.cardID))
+                }
+            )
+        } else {
+            ZStack {
+                PremiumAnalyticsView(snapshot: analyticsSnapshot, showsActions: false)
+                    .frame(height: 360, alignment: .top)
+                    .clipped()
+                    .blur(radius: 5)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+
+                Button {
+                    showingPremiumUpgrade = true
+                } label: {
+                    Label("プレミアムで詳細を見る", systemImage: "crown.fill")
+                        .font(.headline)
+                        .padding()
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(height: 360)
+        }
+    }
+
+    private var analyticsSnapshot: PremiumAnalyticsSnapshot {
+        StatsAnalyzer.analyze(decks: decks, reviews: reviews)
+    }
+
+    private func startAnalyticsQuiz(cardIDs: [UUID]) {
+        let cardsByID = Dictionary(uniqueKeysWithValues: decks.flatMap(\.cards).map { ($0.id, $0) })
+        analyticsQuizCards = cardIDs.compactMap { cardsByID[$0] }
+        showingAnalyticsQuiz = !analyticsQuizCards.isEmpty
     }
 
     private var todayReviews: [StudyReview] {
