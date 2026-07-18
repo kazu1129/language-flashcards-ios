@@ -39,6 +39,10 @@ enum QuestionType: String, CaseIterable, Identifiable {
         self == .fourChoice || self == .synonym || self == .textInput || self == .clozeExample
     }
 
+    var requiresPremium: Bool {
+        self == .textInput || self == .clozeExample
+    }
+
     func isAvailable(in cards: [Flashcard]) -> Bool {
         !eligibleCards(from: cards).isEmpty
     }

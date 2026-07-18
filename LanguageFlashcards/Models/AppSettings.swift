@@ -73,8 +73,6 @@ enum SubscriptionTier: String, CaseIterable, Identifiable {
 }
 
 enum PremiumLimits {
-    static let freeDecks = 3
-    static let freeCards = 100
     static let freeOCRImportsPerMonth = 10
 }
 
@@ -199,12 +197,12 @@ final class AppSettings: ObservableObject {
         max(0, PremiumLimits.freeOCRImportsPerMonth - usageCount(forCountKey: Keys.ocrUsageCount, periodKey: Keys.ocrUsageMonth, currentPeriod: Self.monthKey()))
     }
 
-    func canCreateDeck(existingDeckCount: Int) -> Bool {
-        isPremium || existingDeckCount < PremiumLimits.freeDecks
+    func canCreateDeck(existingDeckCount _: Int) -> Bool {
+        true
     }
 
-    func canAddCards(totalCardCount: Int, adding count: Int) -> Bool {
-        isPremium || totalCardCount + count <= PremiumLimits.freeCards
+    func canAddCards(totalCardCount _: Int, adding _: Int) -> Bool {
+        true
     }
 
     func canUseOCRImport() -> Bool {

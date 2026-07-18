@@ -237,12 +237,8 @@ struct OCRImportView: View {
         !parsedRows.isEmpty && !settings.canAddCards(totalCardCount: totalCardCount, adding: parsedRows.count)
     }
 
-    private var remainingFreeCardSlots: Int {
-        max(0, PremiumLimits.freeCards - totalCardCount)
-    }
-
     private var cardLimitSummary: String {
-        "無料版のカード上限を超えています。追加可能: 残り\(remainingFreeCardSlots)枚 / 保存対象: \(parsedRows.count)枚"
+        "カードを追加できません。保存対象: \(parsedRows.count)枚"
     }
 
     private func handleStartSourceIfNeeded() {

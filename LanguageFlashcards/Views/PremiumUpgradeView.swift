@@ -14,16 +14,16 @@ struct PremiumUpgradeView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(subscriptionStore.trialLabelAny.map { "\($0)無料プレミアムトライアル" } ?? "プレミアムトライアル")
                             .font(.title.bold())
-                        Text(subscriptionStore.trialLabelAny.map { "まずは\($0)、カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。" } ?? "カード数・OCR・分析・共有を広げて試せます。無料でも学習は続けられます。")
+                        Text(subscriptionStore.trialLabelAny.map { "まずは\($0)、例文穴埋め・文字記入クイズ、OCR一括取込、詳細統計・弱点分析、PDF出力を試せます。カードとセットは無料で無制限です。" } ?? "例文穴埋め・文字記入クイズ、OCR一括取込、詳細統計・弱点分析、PDF出力を試せます。カードとセットは無料で無制限です。")
                             .foregroundStyle(.secondary)
                     }
 
                     VStack(spacing: 12) {
-                        PremiumBenefitRow(icon: "rectangle.stack.badge.plus", title: "カードとセットを無制限に", detail: "無料は3セット・100カードまで。")
-                        PremiumBenefitRow(icon: "camera.viewfinder", title: "写真OCRをもっと使える", detail: "無料は月10回まで。メモ写真からまとめて追加。")
-                        PremiumBenefitRow(icon: "chart.line.uptrend.xyaxis", title: "詳しい成果分析", detail: "長期推移や弱点の把握をしやすく。")
-                        PremiumBenefitRow(icon: "square.and.arrow.up", title: "PDF共有に対応", detail: "学習セットをきれいに出力。")
-                        PremiumBenefitRow(icon: "leaf.fill", title: "継続を後押しする通知", detail: "成長通知や記念日メッセージで続けやすく。")
+                        PremiumBenefitRow(icon: "rectangle.stack.badge.plus", title: "カードとセットは無料で無制限", detail: "無料のまま、カード数・セット数に上限なく学習できます。")
+                        PremiumBenefitRow(icon: "text.badge.checkmark", title: "例文穴埋め・文字記入クイズ", detail: "自力で答える形式で、思い出す力を鍛えます。")
+                        PremiumBenefitRow(icon: "camera.viewfinder", title: "OCR一括取込", detail: "無料は月10回まで。メモ写真からまとめて追加できます。")
+                        PremiumBenefitRow(icon: "chart.line.uptrend.xyaxis", title: "詳細統計・弱点分析", detail: "長期推移や苦手な語を詳しく把握できます。")
+                        PremiumBenefitRow(icon: "square.and.arrow.up", title: "PDF出力", detail: "学習セットをきれいに出力できます。")
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -103,7 +103,7 @@ struct PremiumHomeCard: View {
                         .font(.caption.bold())
                 }
 
-                Text("無制限カード、OCR、PDF共有、詳しい成果分析を無料で試せます。")
+                Text("カードは無料で無制限。例文穴埋め・文字記入クイズ、OCR一括取込、詳細統計・弱点分析、PDF出力を試せます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

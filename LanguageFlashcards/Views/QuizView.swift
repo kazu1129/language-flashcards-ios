@@ -74,6 +74,7 @@ struct QuizView: View {
     @State private var showsExplanation = false
     @State private var formatSelectionState = QuizFormatSelectionState()
     @State private var showsUnavailableSessionAlert = false
+    @State private var showingPremiumUpgrade = false
 
     init(cards: [Flashcard] = []) {
         self.cards = cards
@@ -99,6 +100,9 @@ struct QuizView: View {
         } message: {
             Text("この形式で出題できるカードがありません。")
         }
+        .sheet(isPresented: $showingPremiumUpgrade) {
+            PremiumUpgradeView()
+        }
     }
 
     private var formatSelectionView: some View {
@@ -119,10 +123,15 @@ struct QuizView: View {
 
     private func formatButton(for type: QuestionType) -> some View {
         let isAvailable = type.isAvailable(in: cards)
+        let isPremiumLocked = type.requiresPremium && !settings.isPremium
         let unavailableReason = unavailableReason(for: type)
 
         return Button {
-            startSession(with: type)
+            if isPremiumLocked {
+                showingPremiumUpgrade = true
+            } else {
+                startSession(with: type)
+            }
         } label: {
             HStack(spacing: 16) {
                 Image(systemName: type.systemImage)
@@ -132,7 +141,13 @@ struct QuizView: View {
                     HStack {
                         Text(type.title)
                             .font(.headline)
-                        if !type.isImplemented {
+                        if isPremiumLocked {
+                            Text("プレミアム")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(.secondary.opacity(0.15), in: Capsule())
+                        } else if !type.isImplemented {
                             Text("準備中")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 8)
@@ -141,7 +156,9 @@ struct QuizView: View {
                         }
                     }
                     Text(
-                        type.isImplemented
+                        isPremiumLocked
+                            ? type.description
+                            : type.isImplemented
                             ? (isAvailable ? type.description : unavailableReason)
                             : type.description
                     )
@@ -149,7 +166,7 @@ struct QuizView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: isAvailable ? "chevron.right" : "lock.fill")
+                Image(systemName: isPremiumLocked || !isAvailable ? "lock.fill" : "chevron.right")
                     .foregroundStyle(.secondary)
             }
             .padding()
@@ -160,9 +177,13 @@ struct QuizView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(!isAvailable)
-        .opacity(isAvailable ? 1 : 0.55)
-        .accessibilityValue(type.isImplemented ? (isAvailable ? "利用可能" : unavailableReason) : "準備中")
+        .disabled(!isPremiumLocked && !isAvailable)
+        .opacity(isPremiumLocked || isAvailable ? 1 : 0.55)
+        .accessibilityValue(
+            isPremiumLocked
+                ? "プレミアム"
+                : type.isImplemented ? (isAvailable ? "利用可能" : unavailableReason) : "準備中"
+        )
     }
 
     private func questionView(_ question: QuizQuestion, session: QuizSession) -> some View {

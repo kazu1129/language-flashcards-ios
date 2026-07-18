@@ -944,3 +944,50 @@ struct QuizPolishTests {
         #expect(allCorrect.retrySession(from: cards, now: now) == nil)
     }
 }
+
+@Suite("フリーミアム課金モデル")
+struct FreemiumPricingModelTests {
+    // 狙い: 無料ユーザーでもカード数・セット数の上限に阻まれないことを固定する。
+    @MainActor
+    @Test("無料でもカードとセットを無制限に追加できる")
+    func freeTierAllowsUnlimitedCardsAndDecks() {
+        let suiteName = "FreemiumPricingModelTests.Unlimited.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: defaults)
+
+        #expect(!settings.isPremium)
+        #expect(settings.canAddCards(totalCardCount: 100_000, adding: 1))
+        #expect(settings.canCreateDeck(existingDeckCount: 100))
+    }
+
+    // 狙い: 無料形式とプレミアム形式の線引きをモデル側の1か所で保証する。
+    @Test("穴埋めと文字記入だけがプレミアム形式")
+    func premiumQuizFormatBoundary() {
+        #expect(!QuestionType.fourChoice.requiresPremium)
+        #expect(!QuestionType.synonym.requiresPremium)
+        #expect(QuestionType.clozeExample.requiresPremium)
+        #expect(QuestionType.textInput.requiresPremium)
+    }
+
+    // 狙い: カード上限撤廃後も無料OCRの月10回ゲートを変更しない。
+    @MainActor
+    @Test("無料OCRは従来どおり月10回で停止する")
+    func freeOCRLimitRemainsTenPerMonth() {
+        let suiteName = "FreemiumPricingModelTests.OCR.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: defaults)
+
+        #expect(PremiumLimits.freeOCRImportsPerMonth == 10)
+        #expect(settings.canUseOCRImport())
+        for _ in 0..<PremiumLimits.freeOCRImportsPerMonth {
+            settings.recordOCRImport()
+        }
+        #expect(settings.totalFreeOCRRemainingThisMonth == 0)
+        #expect(!settings.canUseOCRImport())
+
+        settings.subscriptionTier = .premium
+        #expect(settings.canUseOCRImport())
+    }
+}
