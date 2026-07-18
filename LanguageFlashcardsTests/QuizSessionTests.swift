@@ -292,6 +292,45 @@ struct QuizFormatSelectionTests {
     }
 }
 
+@Suite("セッション枚数の直接入力")
+struct SessionCardCountInputTests {
+    // 狙い: 直接入力でStepperと同じ1...100の有効範囲に必ず収める。
+    @Test("直接入力を1から100へクランプし、空・非数値は直前の有効値へ戻す")
+    func normalizesDirectInputAtBoundaries() {
+        #expect(SessionCardCountInput.normalizedValue(from: "0", fallback: 10) == 1)
+        #expect(SessionCardCountInput.normalizedValue(from: "101", fallback: 10) == 100)
+        #expect(SessionCardCountInput.normalizedValue(from: "-5", fallback: 10) == 1)
+        #expect(SessionCardCountInput.normalizedValue(from: "50", fallback: 10) == 50)
+        #expect(SessionCardCountInput.normalizedValue(from: "", fallback: 42) == 42)
+        #expect(SessionCardCountInput.normalizedValue(from: "abc", fallback: 42) == 42)
+        #expect(SessionCardCountInput.normalizedValue(from: "", fallback: 0) == 1)
+    }
+
+    // 狙い: クランプ済みの直接入力が既存AppSettings経路で永続化・再読込される。
+    @MainActor
+    @Test("クランプ済みの枚数を保存して再読込できる")
+    func persistsNormalizedDirectInput() {
+        let suiteName = "SessionCardCountInputTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        settings.sessionCardCount = SessionCardCountInput.normalizedValue(
+            from: "101",
+            fallback: settings.sessionCardCount
+        )
+
+        let reloadedSettings = AppSettings(defaults: defaults)
+        #expect(reloadedSettings.sessionCardCount == 100)
+    }
+
+    // 狙い: Stepperと直接入力の範囲を1か所の定義で一致させ、範囲ずれを防ぐ。
+    @Test("直接入力とStepperの共通範囲は1から100")
+    func sharesStepperRange() {
+        #expect(SessionCardCountInput.range == (1...100))
+    }
+}
+
 @Suite("S6' 例文穴埋め")
 struct QuizClozeExampleTests {
     @Test("言語方向: 第2言語が例文にある場合はその語を空欄と正解にする")

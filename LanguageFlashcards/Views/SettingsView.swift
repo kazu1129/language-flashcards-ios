@@ -5,6 +5,18 @@ enum SettingsScrollTarget: Hashable {
     case sessionCardCount
 }
 
+enum SessionCardCountInput {
+    static let range = 1...100
+
+    static func normalizedValue(from input: String, fallback: Int) -> Int {
+        let fallback = min(max(fallback, range.lowerBound), range.upperBound)
+        guard let value = Int(input.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return fallback
+        }
+        return min(max(value, range.lowerBound), range.upperBound)
+    }
+}
+
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -16,6 +28,8 @@ struct SettingsView: View {
     @State private var showingPremiumUpgrade = false
     @State private var showingLogoutConfirmation = false
     @State private var showingDeleteAllConfirmation = false
+    @State private var sessionCardCountText = ""
+    @FocusState private var isSessionCardCountFocused: Bool
     private let initialScrollTarget: SettingsScrollTarget?
     private let showsDismissButton: Bool
 
@@ -93,11 +107,23 @@ struct SettingsView: View {
 
                     Toggle("発音を無音化", isOn: $settings.muteAudio)
 
-                    Stepper(value: $settings.sessionCardCount, in: 1...100) {
+                    Stepper(value: sessionCardCountBinding, in: SessionCardCountInput.range) {
                         Text("1セッション \(settings.sessionCardCount)枚")
                     }
                     .id(SettingsScrollTarget.sessionCardCount)
                     .accessibilityIdentifier("settings-session-card-count-stepper")
+
+                    TextField("枚数を直接入力", text: $sessionCardCountText)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .focused($isSessionCardCountFocused)
+                        .accessibilityLabel("1セッションの枚数")
+                        .onSubmit(commitSessionCardCountInput)
+                        .onChange(of: isSessionCardCountFocused) { _, isFocused in
+                            if !isFocused {
+                                commitSessionCardCountInput()
+                            }
+                        }
                 }
 
                 Section("キャラクター") {
@@ -186,6 +212,13 @@ struct SettingsView: View {
                         }
                     }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完了") {
+                        commitSessionCardCountInput()
+                        isSessionCardCountFocused = false
+                    }
+                }
             }
             .alert("ログアウトしますか？", isPresented: $showingLogoutConfirmation) {
                 Button("ログアウト", role: .destructive) {
@@ -213,8 +246,34 @@ struct SettingsView: View {
                     proxy.scrollTo(initialScrollTarget, anchor: .center)
                 }
             }
+            .onAppear {
+                sessionCardCountText = String(settings.sessionCardCount)
+            }
             }
         }
+    }
+
+    private var sessionCardCountBinding: Binding<Int> {
+        Binding(
+            get: { settings.sessionCardCount },
+            set: { newValue in
+                let normalized = SessionCardCountInput.normalizedValue(
+                    from: String(newValue),
+                    fallback: settings.sessionCardCount
+                )
+                settings.sessionCardCount = normalized
+                sessionCardCountText = String(normalized)
+            }
+        )
+    }
+
+    private func commitSessionCardCountInput() {
+        let normalized = SessionCardCountInput.normalizedValue(
+            from: sessionCardCountText,
+            fallback: settings.sessionCardCount
+        )
+        settings.sessionCardCount = normalized
+        sessionCardCountText = String(normalized)
     }
 
     private var streakDays: Int {
