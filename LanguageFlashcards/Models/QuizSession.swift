@@ -108,7 +108,7 @@ enum ClozeExampleBuilder {
 }
 
 enum SynonymParser {
-    private static let separators = CharacterSet(charactersIn: ",、・;/\n\r")
+    private static let separators = CharacterSet(charactersIn: ",、・;/\n\r，／；　｜")
 
     static func parse(_ text: String) -> [String] {
         unique(text.components(separatedBy: separators))
@@ -300,6 +300,10 @@ struct QuizSession {
 
     var totalCount: Int {
         queue.count
+    }
+
+    var canStart: Bool {
+        totalCount > 0
     }
 
     var isFinished: Bool {

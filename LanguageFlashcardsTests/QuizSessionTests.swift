@@ -868,3 +868,79 @@ struct QuizDontKnowTests {
         return try ModelContainer(for: schema, configurations: [configuration])
     }
 }
+
+@Suite("S9'-b クイズ磨き込み")
+struct QuizPolishTests {
+    // 狙い: 日本語入力で使われる全角区切りを受け入れ、既存の半角・重複除去を維持する。
+    @Test("同義語パーサは全角と半角の区切りを同じように扱う")
+    func synonymParserSupportsFullWidthSeparators() {
+        #expect(
+            SynonymParser.parse("走る，歩く／泳ぐ；跳ぶ　登る")
+                == ["走る", "歩く", "泳ぐ", "跳ぶ", "登る"]
+        )
+        #expect(
+            SynonymParser.parse("run,walk、jog・swim;sprint/climb\nhop")
+                == ["run", "walk", "jog", "swim", "sprint", "climb", "hop"]
+        )
+        #expect(SynonymParser.parse("走る，，走る／　歩く｜歩く") == ["走る", "歩く"])
+    }
+
+    // 狙い: オーナー実データ方向でも対象0枚を開始せず、対象があれば従来どおり開始できる。
+    @Test("0問セッションを開始ガードで拒否し、1問以上は開始できる")
+    func startGuardRejectsEmptySession() {
+        let unavailableCard = Flashcard(
+            languageOneText: "共依存の",
+            languageTwoText: "codependent on",
+            meanings: [MeaningEntry(meaning: "共依存の", synonyms: "")]
+        )
+        let availableCard = Flashcard(
+            languageOneText: "独立した",
+            languageTwoText: "independent",
+            meanings: [MeaningEntry(meaning: "独立した", synonyms: "self-reliant")]
+        )
+
+        let emptySession = QuizSession(cards: [unavailableCard], questionType: .synonym)
+        let startableSession = QuizSession(cards: [unavailableCard, availableCard], questionType: .synonym)
+
+        #expect(emptySession.totalCount == 0)
+        #expect(!emptySession.canStart)
+        #expect(startableSession.totalCount == 1)
+        #expect(startableSession.canStart)
+    }
+
+    // 狙い: 弱点再挑戦の生成を1回の値として安全に再利用でき、呼び出しに副作用がないことを守る。
+    @Test("retrySessionは対象カードだけを同値で返し、全問正解ならnil")
+    func retrySessionIsRepeatableAndSideEffectFree() throws {
+        let incorrectCard = Flashcard(languageOneText: "共依存の", languageTwoText: "codependent on")
+        let correctCard = Flashcard(languageOneText: "独立した", languageTwoText: "independent")
+        let cards = [incorrectCard, correctCard]
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        var session = QuizSession(
+            cards: cards,
+            questionType: .textInput,
+            sessionCardCount: 10,
+            now: now
+        )
+
+        while let question = session.currentQuestion {
+            session.recordAnswer(isCorrect: question.cardID == correctCard.id, promoted: false)
+            session.advance()
+        }
+        let originalResult = session.result
+
+        let firstRetry = try #require(session.retrySession(from: cards, now: now))
+        let secondRetry = try #require(session.retrySession(from: cards, now: now))
+
+        #expect(firstRetry.totalCount == 1)
+        #expect(firstRetry.queue.map(\.id) == [incorrectCard.id])
+        #expect(secondRetry.queue.map(\.id) == firstRetry.queue.map(\.id))
+        #expect(session.result == originalResult)
+
+        var allCorrect = QuizSession(cards: cards, questionType: .textInput, now: now)
+        while allCorrect.currentQuestion != nil {
+            allCorrect.recordAnswer(isCorrect: true, promoted: false)
+            allCorrect.advance()
+        }
+        #expect(allCorrect.retrySession(from: cards, now: now) == nil)
+    }
+}

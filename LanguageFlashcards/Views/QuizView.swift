@@ -73,6 +73,7 @@ struct QuizView: View {
     @State private var textAnswer = ""
     @State private var showsExplanation = false
     @State private var formatSelectionState = QuizFormatSelectionState()
+    @State private var showsUnavailableSessionAlert = false
 
     init(cards: [Flashcard] = []) {
         self.cards = cards
@@ -81,7 +82,7 @@ struct QuizView: View {
 
     var body: some View {
         Group {
-            if let session {
+            if let session, session.canStart {
                 if let question = session.currentQuestion {
                     questionView(question, session: session)
                 } else {
@@ -93,6 +94,11 @@ struct QuizView: View {
         }
         .navigationTitle("クイズ")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("クイズを開始できません", isPresented: $showsUnavailableSessionAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("この形式で出題できるカードがありません。")
+        }
     }
 
     private var formatSelectionView: some View {
@@ -359,6 +365,7 @@ struct QuizView: View {
     private func completionView(session completedSession: QuizSession) -> some View {
         let result = completedSession.result
         let streakDays = LearningProgress.consecutiveStudyDays(from: reviews)
+        let retry = completedSession.retrySession(from: cards)
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -384,9 +391,9 @@ struct QuizView: View {
                 }
 
                 VStack(spacing: 12) {
-                    if completedSession.retrySession(from: cards) != nil {
+                    if let retry {
                         Button("間違えた語だけもう一度") {
-                            session = completedSession.retrySession(from: cards)
+                            session = retry
                             resetAnswerState()
                         }
                         .buttonStyle(.borderedProminent)
@@ -451,12 +458,21 @@ struct QuizView: View {
     }
 
     private func startSession(with questionType: QuestionType) {
-        formatSelectionState.select(questionType)
-        session = QuizSession(
+        let newSession = QuizSession(
             cards: cards,
             questionType: questionType,
             sessionCardCount: settings.sessionCardCount
         )
+        guard newSession.canStart else {
+            session = nil
+            formatSelectionState.resetSelection()
+            showsUnavailableSessionAlert = true
+            resetAnswerState()
+            return
+        }
+
+        formatSelectionState.select(questionType)
+        session = newSession
         resetAnswerState()
     }
 
