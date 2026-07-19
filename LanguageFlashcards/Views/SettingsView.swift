@@ -83,19 +83,6 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if PremiumOverrideAvailability.isTestFlightOrDebug {
-                    Section("検証") {
-                        Toggle(
-                            "テスト用: プレミアムを有効化",
-                            isOn: $settings.debugPremiumOverride
-                        )
-
-                        Text("※検証用。App Store版では表示されません")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
                 Section("Supabase接続") {
                     TextField("Project URL", text: $settings.supabaseURL)
                         .textInputAutocapitalization(.never)

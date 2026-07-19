@@ -76,26 +76,6 @@ enum PremiumLimits {
     static let freeOCRImportsPerMonth = 10
 }
 
-enum PremiumOverrideAvailability {
-    static var isTestFlightOrDebug: Bool {
-        #if DEBUG
-        true
-        #else
-        isAvailable(
-            isDebugBuild: false,
-            receiptLastPathComponent: Bundle.main.appStoreReceiptURL?.lastPathComponent
-        )
-        #endif
-    }
-
-    static func isAvailable(
-        isDebugBuild: Bool,
-        receiptLastPathComponent: String?
-    ) -> Bool {
-        isDebugBuild || receiptLastPathComponent == "sandboxReceipt"
-    }
-}
-
 @MainActor
 final class AppSettings: ObservableObject {
     private enum Keys {
@@ -105,7 +85,6 @@ final class AppSettings: ObservableObject {
         static let fontScale = "fontScale"
         static let appearance = "appearance"
         static let subscriptionTier = "subscriptionTier"
-        static let debugPremiumOverride = "debugPremiumOverride"
         static let showCharacterOnHome = "showCharacterOnHome"
         static let studyReminderEnabled = "studyReminderEnabled"
         static let dailySummaryEnabled = "dailySummaryEnabled"
@@ -143,10 +122,6 @@ final class AppSettings: ObservableObject {
 
     @Published var subscriptionTier: SubscriptionTier {
         didSet { defaults.set(subscriptionTier.rawValue, forKey: Keys.subscriptionTier) }
-    }
-
-    @Published var debugPremiumOverride: Bool {
-        didSet { defaults.set(debugPremiumOverride, forKey: Keys.debugPremiumOverride) }
     }
 
     @Published var showCharacterOnHome: Bool {
@@ -190,14 +165,9 @@ final class AppSettings: ObservableObject {
     }
 
     private let defaults: UserDefaults
-    private let premiumOverrideAvailable: Bool
 
-    init(
-        defaults: UserDefaults = .standard,
-        premiumOverrideAvailable: Bool = PremiumOverrideAvailability.isTestFlightOrDebug
-    ) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.premiumOverrideAvailable = premiumOverrideAvailable
         self.displaySide = CardSidePreference(rawValue: defaults.string(forKey: Keys.displaySide) ?? "") ?? .languageOne
         self.muteAudio = defaults.bool(forKey: Keys.muteAudio)
         let savedCount = defaults.integer(forKey: Keys.sessionCardCount)
@@ -206,7 +176,6 @@ final class AppSettings: ObservableObject {
         self.fontScale = savedScale == 0 ? 1.0 : savedScale
         self.appearance = AppearancePreference(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
         self.subscriptionTier = SubscriptionTier(rawValue: defaults.string(forKey: Keys.subscriptionTier) ?? "") ?? .free
-        self.debugPremiumOverride = defaults.bool(forKey: Keys.debugPremiumOverride)
         self.showCharacterOnHome = defaults.object(forKey: Keys.showCharacterOnHome) as? Bool ?? true
         self.studyReminderEnabled = defaults.object(forKey: Keys.studyReminderEnabled) as? Bool ?? true
         self.dailySummaryEnabled = defaults.object(forKey: Keys.dailySummaryEnabled) as? Bool ?? true
@@ -221,9 +190,7 @@ final class AppSettings: ObservableObject {
     }
 
     var isPremium: Bool {
-        // 検証用フラグは機能ゲートだけを開き、StoreKitの購入状態は変更しない。
         subscriptionTier == .premium
-            || (premiumOverrideAvailable && debugPremiumOverride)
     }
 
     var totalFreeOCRRemainingThisMonth: Int {
