@@ -14,6 +14,7 @@ struct CardEditorView: View {
     @State private var meanings: [MeaningEntry]
     @State private var duplicateWarningMessage: String?
     @State private var showingPremiumUpgrade = false
+    @State private var showingDeleteConfirmation = false
 
     init(deck: FlashcardDeck, card: Flashcard? = nil, totalCardCount: Int = 0) {
         self._deck = Bindable(deck)
@@ -67,6 +68,16 @@ struct CardEditorView: View {
                     Label("意味を追加", systemImage: "plus.circle")
                 }
             }
+
+            if CardEditorDeleteOperation.canDelete(card: card) {
+                Section {
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("このカードを削除", systemImage: "trash")
+                    }
+                }
+            }
         }
         .navigationTitle(card == nil ? "カードを追加" : "カードを編集")
         .toolbar {
@@ -92,6 +103,18 @@ struct CardEditorView: View {
         }
         .sheet(isPresented: $showingPremiumUpgrade) {
             PremiumUpgradeView()
+        }
+        .confirmationDialog(
+            "このカードを削除しますか？",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                deleteCard()
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("この操作は取り消せません。")
         }
     }
 
@@ -151,6 +174,36 @@ struct CardEditorView: View {
 
         try? modelContext.save()
         dismiss()
+    }
+
+    private func deleteCard() {
+        guard CardEditorDeleteOperation.delete(
+            card: card,
+            from: deck,
+            in: modelContext
+        ) else { return }
+        dismiss()
+    }
+}
+
+enum CardEditorDeleteOperation {
+    static func canDelete(card: Flashcard?) -> Bool {
+        card != nil
+    }
+
+    @MainActor
+    @discardableResult
+    static func delete(
+        card: Flashcard?,
+        from deck: FlashcardDeck,
+        in modelContext: ModelContext,
+        at deletedAt: Date = .now
+    ) -> Bool {
+        guard let card else { return false }
+        modelContext.delete(card)
+        deck.updatedAt = deletedAt
+        try? modelContext.save()
+        return true
     }
 }
 
