@@ -426,7 +426,11 @@ struct QuizView: View {
                     .foregroundStyle(.green)
 
                 HStack(spacing: 14) {
-                    CharacterAvatarView(stage: character.stage, size: 72)
+                    CharacterAvatarView(
+                        stage: character.stage,
+                        size: 72,
+                        animate: true
+                    )
 
                     VStack(alignment: .leading, spacing: 5) {
                         Text(character.message)
