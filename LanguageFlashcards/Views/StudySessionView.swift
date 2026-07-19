@@ -5,6 +5,7 @@ struct StudySessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
+    @Query(sort: \StudyReview.reviewedAt, order: .forward) private var reviews: [StudyReview]
     @Bindable var deck: FlashcardDeck
     var onFinish: () -> Void
 
@@ -31,8 +32,15 @@ struct StudySessionView: View {
                     description: Text("カードを追加してから学習を開始してください。")
                 )
             } else if showingCompletion {
+                let streakDays = LearningProgress.consecutiveStudyDays(from: reviews)
+                let character = CompletionCharacterPresentation.study(
+                    streakDays: streakDays,
+                    studiedCount: ratedCardIDs.count
+                )
                 StudySessionCompletionView(
                     studiedCount: ratedCardIDs.count,
+                    stage: character.stage,
+                    praiseMessage: character.message,
                     nextSetAction: startNextSession,
                     finishAction: finishSession
                 )
@@ -268,18 +276,27 @@ struct StudySessionView: View {
 
 private struct StudySessionCompletionView: View {
     var studiedCount: Int
+    var stage: CharacterGrowthStage
+    var praiseMessage: String
     var nextSetAction: () -> Void
     var finishAction: () -> Void
 
     var body: some View {
         VStack(spacing: 22) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 58))
-                .foregroundStyle(.green)
+            ZStack(alignment: .bottomTrailing) {
+                CharacterAvatarView(stage: stage, size: 88)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.green)
+                    .background(.background, in: Circle())
+            }
 
             VStack(spacing: 8) {
                 Text("このセットが完了しました")
                     .font(.title2.bold())
+                Text(praiseMessage)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
                 Text("\(studiedCount)枚を学習しました。続ける場合は、忘却曲線で優先度が高いカードから次のセットを出します。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

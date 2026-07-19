@@ -14,6 +14,33 @@ enum QuizAccessibilityText {
     }
 }
 
+struct CompletionCharacterPresentation: Equatable {
+    let stage: CharacterGrowthStage
+    let message: String
+
+    static func quiz(
+        streakDays: Int,
+        isAllCorrect: Bool
+    ) -> CompletionCharacterPresentation {
+        CompletionCharacterPresentation(
+            stage: LearningProgress.currentStage(for: streakDays),
+            message: isAllCorrect
+                ? "ふたばも大よろこび！全問正解、すごい！"
+                : "ふたばと一緒にコツコツ。苦手はあとで復習しよう。"
+        )
+    }
+
+    static func study(
+        streakDays: Int,
+        studiedCount: Int
+    ) -> CompletionCharacterPresentation {
+        CompletionCharacterPresentation(
+            stage: LearningProgress.currentStage(for: streakDays),
+            message: "ふたばが見てるよ。今日も\(studiedCount)枚、よく続けたね！"
+        )
+    }
+}
+
 struct QuizFormatSelectionState {
     private(set) var selectedQuestionType: QuestionType?
 
@@ -386,6 +413,10 @@ struct QuizView: View {
     private func completionView(session completedSession: QuizSession) -> some View {
         let result = completedSession.result
         let streakDays = LearningProgress.consecutiveStudyDays(from: reviews)
+        let character = CompletionCharacterPresentation.quiz(
+            streakDays: streakDays,
+            isAllCorrect: result.incorrectAnswers.isEmpty
+        )
         let retry = completedSession.retrySession(from: cards)
 
         return ScrollView {
@@ -393,6 +424,20 @@ struct QuizView: View {
                 Label("クイズ終了", systemImage: "checkmark.circle.fill")
                     .font(.title.bold())
                     .foregroundStyle(.green)
+
+                HStack(spacing: 14) {
+                    CharacterAvatarView(stage: character.stage, size: 72)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(character.message)
+                            .font(.headline)
+                        Text(character.stage.title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityElement(children: .combine)
 
                 resultMetrics(result: result, streakDays: streakDays)
 
