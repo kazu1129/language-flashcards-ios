@@ -1,10 +1,44 @@
 import SwiftUI
 
+enum CharacterMotion {
+    static func shouldAnimate(requested: Bool, reduceMotion: Bool) -> Bool {
+        requested && !reduceMotion
+    }
+}
+
 struct CharacterAvatarView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var stage: CharacterGrowthStage
     var size: CGFloat = 92
+    var animate: Bool = false
+    @State private var hasAppeared = false
 
+    @ViewBuilder
     var body: some View {
+        if CharacterMotion.shouldAnimate(
+            requested: animate,
+            reduceMotion: reduceMotion
+        ) {
+            avatarImage
+                .scaleEffect(hasAppeared ? 1 : 0.6)
+                .opacity(hasAppeared ? 1 : 0)
+                .phaseAnimator([false, true]) { content, isRaised in
+                    content.offset(y: isRaised ? -6 : 0)
+                } animation: { _ in
+                    .easeInOut(duration: 0.9)
+                }
+                .onAppear {
+                    hasAppeared = false
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
+                        hasAppeared = true
+                    }
+                }
+        } else {
+            avatarImage
+        }
+    }
+
+    private var avatarImage: some View {
         Image(stage.imageName)
             .resizable()
             .scaledToFill()
@@ -52,4 +86,3 @@ struct CharacterHomeHeader: View {
         .padding(.vertical, 8)
     }
 }
-

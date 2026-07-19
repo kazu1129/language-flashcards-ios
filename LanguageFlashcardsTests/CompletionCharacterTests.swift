@@ -4,6 +4,47 @@ import Testing
 
 @Suite("完了画面のFutaba表示")
 struct CompletionCharacterTests {
+    // 狙い: 完了画面から要求されたとき、Reduce MotionがOFFならアニメを再生する基本経路を固定する。
+    @Test("オプトインかつReduce Motion OFFならアニメする")
+    func enablesRequestedMotion() {
+        #expect(CharacterMotion.shouldAnimate(
+            requested: true,
+            reduceMotion: false
+        ))
+    }
+
+    // 狙い: 完了画面がアニメを要求してもReduce Motionを最優先し、動きを完全停止する。
+    @Test("Reduce Motion ONならアニメしない")
+    func disablesMotionForAccessibility() {
+        #expect(!CharacterMotion.shouldAnimate(
+            requested: true,
+            reduceMotion: true
+        ))
+    }
+
+    // 狙い: オプトインしていないホーム・設定のキャラへアニメが波及しない判定を固定する。
+    @Test("オプトインなしなら環境にかかわらずアニメしない")
+    func keepsUnrequestedMotionStatic() {
+        #expect(!CharacterMotion.shouldAnimate(
+            requested: false,
+            reduceMotion: false
+        ))
+        #expect(!CharacterMotion.shouldAnimate(
+            requested: false,
+            reduceMotion: true
+        ))
+    }
+
+    // 狙い: CharacterAvatarViewの既存呼び出しがデフォルトで静止し、API互換を維持する。
+    @MainActor
+    @Test("CharacterAvatarViewのanimate既定値はfalse")
+    func avatarAnimationIsOptIn() {
+        let stage = LearningProgress.currentStage(for: 0)
+        let avatar = CharacterAvatarView(stage: stage)
+
+        #expect(!avatar.animate)
+    }
+
     // 狙い: 完了画面が再利用する既存8段階の境界を固定し、成長画像の取り違えを防ぐ。
     @Test("成長段階の主要境界を維持する")
     func preservesGrowthStageBoundaries() {

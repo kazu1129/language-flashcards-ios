@@ -284,7 +284,11 @@ private struct StudySessionCompletionView: View {
     var body: some View {
         VStack(spacing: 22) {
             ZStack(alignment: .bottomTrailing) {
-                CharacterAvatarView(stage: stage, size: 88)
+                CharacterAvatarView(
+                    stage: stage,
+                    size: 88,
+                    animate: true
+                )
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 28))
                     .foregroundStyle(.green)
