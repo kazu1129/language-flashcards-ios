@@ -139,10 +139,11 @@
 			};
 			buildConfigurationList = 1A2B3C4D5E6F70000000000B /* Build configuration list for PBXProject "LanguageFlashcards" */;
 			compatibilityVersion = "Xcode 16.0";
-			developmentRegion = en;
+			developmentRegion = ja;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ja,
 				Base,
 			);
 			mainGroup = 1A2B3C4D5E6F700000000004;
