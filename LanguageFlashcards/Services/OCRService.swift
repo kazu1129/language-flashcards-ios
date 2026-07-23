@@ -16,11 +16,21 @@ enum OCRServiceError: LocalizedError {
 }
 
 final class OCRService {
+    static func configuredRequest(
+        completionHandler: VNRequestCompletionHandler? = nil
+    ) -> VNRecognizeTextRequest {
+        let request = VNRecognizeTextRequest(completionHandler: completionHandler)
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.recognitionLanguages = ["ja-JP", "en-US"]
+        return request
+    }
+
     func recognizeText(from image: UIImage) async throws -> String {
         guard let cgImage = image.cgImage else { throw OCRServiceError.missingImage }
 
         return try await withCheckedThrowingContinuation { continuation in
-            let request = VNRecognizeTextRequest { request, error in
+            let request = Self.configuredRequest { request, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
@@ -38,9 +48,6 @@ final class OCRService {
                     continuation.resume(returning: text)
                 }
             }
-
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
 
             let handler = VNImageRequestHandler(cgImage: cgImage, orientation: CGImagePropertyOrientation(image.imageOrientation))
             do {
@@ -76,4 +83,3 @@ private extension CGImagePropertyOrientation {
         }
     }
 }
-
