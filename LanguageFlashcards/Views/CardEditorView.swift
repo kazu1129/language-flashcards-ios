@@ -52,13 +52,29 @@ struct CardEditorView: View {
                             .lineLimit(1...4)
                         TextField("例文の訳", text: $meaning.exampleTranslation, axis: .vertical)
                             .lineLimit(1...4)
+                        if meanings.count > 1 {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    meanings = MeaningRowDeleteOperation.delete(
+                                        id: meaning.id,
+                                        from: meanings
+                                    )
+                                }
+                            } label: {
+                                Label("この意味を削除", systemImage: "trash")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
                     .padding(.vertical, 4)
                 }
                 .onDelete { offsets in
-                    meanings.remove(atOffsets: offsets)
-                    if meanings.isEmpty {
-                        meanings.append(MeaningEntry())
+                    withAnimation {
+                        meanings = MeaningRowDeleteOperation.delete(
+                            at: offsets,
+                            from: meanings
+                        )
                     }
                 }
 
@@ -204,6 +220,28 @@ enum CardEditorDeleteOperation {
         deck.updatedAt = deletedAt
         try? modelContext.save()
         return true
+    }
+}
+
+enum MeaningRowDeleteOperation {
+    static func canDelete(from meanings: [MeaningEntry]) -> Bool {
+        meanings.count > 1
+    }
+
+    static func delete(id: UUID, from meanings: [MeaningEntry]) -> [MeaningEntry] {
+        guard canDelete(from: meanings) else { return meanings }
+        let remainingMeanings = meanings.filter { $0.id != id }
+        return ensuringAtLeastOneMeaning(in: remainingMeanings)
+    }
+
+    static func delete(at offsets: IndexSet, from meanings: [MeaningEntry]) -> [MeaningEntry] {
+        var remainingMeanings = meanings
+        remainingMeanings.remove(atOffsets: offsets)
+        return ensuringAtLeastOneMeaning(in: remainingMeanings)
+    }
+
+    private static func ensuringAtLeastOneMeaning(in meanings: [MeaningEntry]) -> [MeaningEntry] {
+        meanings.isEmpty ? [MeaningEntry()] : meanings
     }
 }
 
