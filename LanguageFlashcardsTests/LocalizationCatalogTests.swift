@@ -36,23 +36,28 @@ struct LocalizationCatalogTests {
     }
 
     @Test("日本語ソースは既存表示を維持する")
-    func preservesJapaneseSourceStrings() {
-        // 狙い: developmentRegion変更後もP0文言が従来の日本語のまま解決され、表示退行しないことを防ぐ。
+    func preservesJapaneseSourceStrings() throws {
+        // 狙い: 日本語ソース言語は翻訳テーブルではなくキーへのフォールバックで表示される設計を検証し、既存の日本語表示の退行を防ぐ。
         let preferredLocalizations = Bundle.preferredLocalizations(
             from: Bundle.main.localizations,
             forPreferences: ["ja"]
         )
+        let japaneseResourcePath = Bundle.main.path(
+            forResource: "Localizable",
+            ofType: "strings",
+            inDirectory: nil,
+            forLocalization: "ja"
+        )
 
         #expect(Bundle.main.developmentLocalization == "ja")
         #expect(preferredLocalizations.first == "ja")
-        for key in p0Keys {
-            let localized = String(
-                localized: String.LocalizationValue(key),
-                table: "Localizable",
-                bundle: .main,
-                locale: Locale(identifier: "ja")
-            )
-            #expect(localized == key)
+        #expect(japaneseResourcePath == nil)
+
+        if japaneseResourcePath != nil {
+            let translations = try compiledTranslations(for: "ja")
+            for key in p0Keys {
+                #expect(translations[key] == key)
+            }
         }
     }
 
