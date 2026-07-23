@@ -46,7 +46,13 @@ struct LocalizationCatalogTests {
         #expect(Bundle.main.developmentLocalization == "ja")
         #expect(preferredLocalizations.first == "ja")
         for key in p0Keys {
-            #expect(!key.isEmpty)
+            let localized = String(
+                localized: String.LocalizationValue(key),
+                table: "Localizable",
+                bundle: .main,
+                locale: Locale(identifier: "ja")
+            )
+            #expect(localized == key)
         }
     }
 
